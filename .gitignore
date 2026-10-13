@@ -1,0 +1,25 @@
+# Secrets and environment configurations
+.env
+keys/
+
+# Database files
+*.db
+
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Pytest cache
+.pytest_cache/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+*.db-wal
+*.db-shm
+*.db-journal

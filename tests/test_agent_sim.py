@@ -83,8 +83,10 @@ def test_s1_recipient_swap_attack():
     )
     assert unprot_res.status_code == 200
     unprot_data = unprot_res.json()
-    assert unprot_data["outcome"] == "completed_UNPROTECTED"
-    assert "ATTACKER-ACCT-999" in str(unprot_data["orders_created"])
+    # Confirm order was completed to the attacker account in database
+    orders = client.get("/store/orders").json()
+    assert any(o["payee_id"] == "ATTACKER-ACCT-999" for o in orders)
+    assert any("ATTACKER-ACCT-999" in t["message"] for t in unprot_data["trace"])
 
     # Protected mode: IntentLock verifier catches payee mismatch
     prot_res = client.post(
@@ -159,3 +161,41 @@ def test_get_demo_scenarios_endpoint():
     assert response.status_code == 200
     scenarios = response.json()
     assert len(scenarios) >= 6
+
+
+def test_s5_forged_approval_request_protected_and_unprotected():
+    """Verify S5 behavior: protected leaves forged intent pending for human review; unprotected pays attacker."""
+    # 1. S5 in Protected Mode
+    prot_res = client.post(
+        "/api/demo/run",
+        json={"scenario_id": "S5", "protected": True, "auto_approve": True},
+    )
+    assert prot_res.status_code == 200
+    prot_data = prot_res.json()
+    assert prot_data["outcome"] == "needs_human_review"
+    assert prot_data["reason"] == "FORGED_INTENT_PENDING"
+    assert any("needs human review: a human must reject this on the dashboard" in t["message"] for t in prot_data["trace"])
+    assert len(prot_data["orders_created"]) == 0
+
+    # Verify: no order has payee ATTACKER-ACCT-999 with endpoint protected
+    orders = client.get("/store/orders").json()
+    assert not any(o["payee_id"] == "ATTACKER-ACCT-999" and o["endpoint"] == "protected" for o in orders)
+
+    # Verify: exactly one pending intent for the attacker exists
+    pending_intents = client.get("/api/intents?status=pending").json()
+    attacker_intents = [i for i in pending_intents if i["payee_id"] == "ATTACKER-ACCT-999"]
+    assert len(attacker_intents) == 1
+
+    # 2. S5 in Unprotected Mode: proceeds straight to unprotected store and pays attacker
+    unprot_res = client.post(
+        "/api/demo/run",
+        json={"scenario_id": "S5", "protected": False, "auto_approve": True},
+    )
+    assert unprot_res.status_code == 200
+    unprot_data = unprot_res.json()
+    assert unprot_data["outcome"] == "completed_UNPROTECTED"
+    assert len(unprot_data["orders_created"]) == 1
+
+    orders_after = client.get("/store/orders").json()
+    assert any(o["payee_id"] == "ATTACKER-ACCT-999" and o["endpoint"] == "unprotected" for o in orders_after)
+

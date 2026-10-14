@@ -3,6 +3,7 @@
 Currency Rule: All monetary amounts are stored strictly as integer cents (never floats).
 """
 
+from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -94,4 +95,22 @@ class OrderResponse(BaseModel):
     payee_id: str
     endpoint: str
     created_at: int
+
+
+class RunDemoRequest(BaseModel):
+    """Parameters for running a simulated attack scenario."""
+
+    scenario_id: str
+    protected: bool = True
+    auto_approve: bool = True
+
+
+class RunDemoResponse(BaseModel):
+    """Results from running a simulated attack scenario."""
+
+    trace: list[dict[str, Any]]
+    outcome: str
+    orders_created: list[str]
+    reason: str | None = None
+
 

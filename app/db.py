@@ -107,6 +107,22 @@ def init_db(db_path: Path | str | None = None) -> None:
             """
         )
 
+        # Table 4: Completed store orders (records endpoint and recipient payee for attack demonstration)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS orders (
+                id TEXT PRIMARY KEY,
+                agent_id TEXT,
+                merchant_id TEXT,
+                item TEXT,
+                amount_cents INTEGER,
+                payee_id TEXT,
+                endpoint TEXT,
+                created_at INTEGER
+            );
+            """
+        )
+
 
 def create_intent(
     intent_id: str,
@@ -283,3 +299,69 @@ def list_audit(
                 row_dict["detail"] = {}
             entries.append(row_dict)
         return entries
+
+
+def create_order(
+    order_id: str,
+    agent_id: str,
+    merchant_id: str,
+    item: str,
+    amount_cents: int,
+    payee_id: str,
+    endpoint: str,
+    db_path: Path | str | None = None,
+    now: int | None = None,
+) -> dict[str, Any]:
+    """Record a completed store order.
+
+    Stores the processing endpoint ('protected' vs 'unprotected') and destination payee
+    to visually demonstrate diverted funds during attack scenarios.
+    """
+    if not isinstance(amount_cents, int):
+        raise TypeError("amount_cents must be an integer (cents)")
+
+    created_at = int(now if now is not None else time.time())
+
+    # Security: Parameterised insert prevents SQL injection on order records
+    sql = (
+        "INSERT INTO orders ("
+        "id, agent_id, merchant_id, item, amount_cents, payee_id, endpoint, created_at"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
+    )
+    params = (
+        order_id,
+        agent_id,
+        merchant_id,
+        item,
+        amount_cents,
+        payee_id,
+        endpoint,
+        created_at,
+    )
+
+    with db_session(db_path) as conn:
+        conn.execute(sql, params)
+
+    return {
+        "id": order_id,
+        "agent_id": agent_id,
+        "merchant_id": merchant_id,
+        "item": item,
+        "amount_cents": amount_cents,
+        "payee_id": payee_id,
+        "endpoint": endpoint,
+        "created_at": created_at,
+    }
+
+
+def list_orders(
+    limit: int = 50,
+    db_path: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """List completed orders ordered newest first."""
+    # Security: Parameterised query enforcing maximum limit
+    sql = "SELECT id, agent_id, merchant_id, item, amount_cents, payee_id, endpoint, created_at FROM orders ORDER BY created_at DESC, id DESC LIMIT ?;"
+
+    with db_session(db_path) as conn:
+        cursor = conn.execute(sql, (int(limit),))
+        return [dict(row) for row in cursor.fetchall()]

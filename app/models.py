@@ -51,3 +51,47 @@ class RejectIntentResponse(BaseModel):
 
     intent_id: str
     status: str
+
+
+class CatalogItem(BaseModel):
+    """Item available in the mock store catalog."""
+
+    id: str
+    name: str
+    price_cents: int
+    currency: str
+    payee_id: str
+
+
+class StoreCheckoutRequest(BaseModel):
+    """Checkout request submitted to store endpoint."""
+
+    agent_id: str
+    merchant_id: str
+    item: str
+    amount_cents: int
+    payee_id: str
+    token: str | None = None
+
+
+class StoreCheckoutResponse(BaseModel):
+    """Response from protected or unprotected store checkout."""
+
+    status: str
+    order_id: str
+    reason: str | None = None
+    warning: str | None = None
+
+
+class OrderResponse(BaseModel):
+    """Completed order record showing processing endpoint and payee."""
+
+    id: str
+    agent_id: str
+    merchant_id: str
+    item: str
+    amount_cents: int
+    payee_id: str
+    endpoint: str
+    created_at: int
+

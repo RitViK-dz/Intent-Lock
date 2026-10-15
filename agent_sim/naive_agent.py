@@ -148,40 +148,70 @@ def run_scenario(
         )
 
     # Step 4: Execute checkout at store
-    if scenario["id"] == "S4" and protected:
-        # S4 Token Replay Attack: First legitimate purchase, then replay
-        _log("Executing initial legitimate checkout with token...")
-        first_payload = {
-            "agent_id": "shopper-agent-1",
-            "merchant_id": scenario["merchant_id"],
-            "item": scenario["item"],
-            "amount_cents": scenario["amount_cents"],
-            "payee_id": scenario["payee_id"],
-            "token": token,
-        }
-        res1 = client.post("/store/checkout", json=first_payload)
-        if res1.status_code == 200:
+    if scenario["id"] == "S4":
+        if protected:
+            # S4 Token Replay Attack (Protected Mode):
+            # First legitimate checkout with token succeeds
+            _log("Executing initial legitimate checkout with token...")
+            first_payload = {
+                "agent_id": "shopper-agent-1",
+                "merchant_id": scenario["merchant_id"],
+                "item": scenario["item"],
+                "amount_cents": scenario["amount_cents"],
+                "payee_id": scenario["payee_id"],
+                "token": token,
+            }
+            res1 = client.post("/store/checkout", json=first_payload)
+            if res1.status_code == 200:
+                order1 = res1.json().get("order_id")
+                orders_created.append(order1)
+                _log(f"First checkout approved. Order ID: {order1}.")
+
+            _log("Agent now attempting MALICIOUS REPLAY of the same consumed token for a second order...")
+            res2 = client.post("/store/checkout", json=first_payload)
+            if res2.status_code == 200:
+                orders_created.append(res2.json().get("order_id"))
+                outcome = "approved"
+                reason = "APPROVED"
+            else:
+                outcome = "blocked"
+                reason = res2.json().get("reason")
+                _log(f"Store verifier BLOCKED duplicate checkout attempt: {reason}.")
+
+            return {
+                "trace": trace,
+                "outcome": outcome,
+                "orders_created": orders_created,
+                "reason": reason,
+            }
+        else:
+            # S4 Token Replay Attack (Unprotected Mode):
+            # Without IntentLock nonce tracking, duplicate submission causes duplicate charge
+            _log("Unprotected Mode: Executing initial checkout...")
+            unprot_payload = {
+                "agent_id": "shopper-agent-1",
+                "merchant_id": scenario["merchant_id"],
+                "item": checkout_item,
+                "amount_cents": checkout_amount,
+                "payee_id": checkout_payee,
+            }
+            res1 = client.post("/store/checkout-unprotected", json=unprot_payload)
             order1 = res1.json().get("order_id")
             orders_created.append(order1)
-            _log(f"First checkout approved. Order ID: {order1}.")
+            _log(f"First unprotected checkout completed: {order1}.")
 
-        _log("Agent now attempting MALICIOUS REPLAY of the same consumed token for a second order...")
-        res2 = client.post("/store/checkout", json=first_payload)
-        if res2.status_code == 200:
-            orders_created.append(res2.json().get("order_id"))
-            outcome = "approved"
-            reason = "APPROVED"
-        else:
-            outcome = "blocked"
-            reason = res2.json().get("reason")
-            _log(f"Store verifier BLOCKED duplicate checkout attempt: {reason}.")
+            _log("Unprotected Mode: Submitting duplicate order without verification...")
+            res2 = client.post("/store/checkout-unprotected", json=unprot_payload)
+            order2 = res2.json().get("order_id")
+            orders_created.append(order2)
+            _log(f"Second unprotected checkout completed: {order2}. DUPLICATE CHARGE OCCURRED.")
 
-        return {
-            "trace": trace,
-            "outcome": outcome,
-            "orders_created": orders_created,
-            "reason": reason,
-        }
+            return {
+                "trace": trace,
+                "outcome": "completed_UNPROTECTED",
+                "orders_created": orders_created,
+                "reason": None,
+            }
 
     # Standard checkout execution
     checkout_payload = {

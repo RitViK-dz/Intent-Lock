@@ -142,7 +142,8 @@ def test_s3_item_swap_attack():
 
 
 def test_s4_token_replay_attack():
-    """S4 token replay is blocked as TOKEN_REPLAYED on the duplicate attempt."""
+    """S4 token replay: protected mode blocks duplicate as TOKEN_REPLAYED; unprotected places duplicate order."""
+    # 1. Protected Mode: duplicate checkout is blocked
     prot_res = client.post(
         "/api/demo/run",
         json={"scenario_id": "S4", "protected": True, "auto_approve": True},
@@ -153,6 +154,22 @@ def test_s4_token_replay_attack():
     assert prot_data["reason"] == "TOKEN_REPLAYED"
     # First checkout succeeded, second duplicate was blocked
     assert len(prot_data["orders_created"]) == 1
+
+    # 2. Unprotected Mode: duplicate checkout succeeds, creating two orders
+    unprot_res = client.post(
+        "/api/demo/run",
+        json={"scenario_id": "S4", "protected": False, "auto_approve": True},
+    )
+    assert unprot_res.status_code == 200
+    unprot_data = unprot_res.json()
+    assert unprot_data["outcome"] == "completed_UNPROTECTED"
+    assert len(unprot_data["orders_created"]) == 2
+
+    # Check store orders to confirm duplicate charges exist in unprotected mode
+    orders = client.get("/store/orders").json()
+    unprot_s4_orders = [o for o in orders if o["id"] in unprot_data["orders_created"]]
+    assert len(unprot_s4_orders) == 2
+    assert all(o["endpoint"] == "unprotected" for o in unprot_s4_orders)
 
 
 def test_get_demo_scenarios_endpoint():
@@ -198,4 +215,35 @@ def test_s5_forged_approval_request_protected_and_unprotected():
 
     orders_after = client.get("/store/orders").json()
     assert any(o["payee_id"] == "ATTACKER-ACCT-999" and o["endpoint"] == "unprotected" for o in orders_after)
+
+
+def test_all_scenarios_protected_orders_payee_integrity():
+    """Verify running S0 to S5 in protected mode on a clean DB results ONLY in orders with payee STORE-ACCT-001."""
+    # Execute scenarios S0 through S5 in protected mode
+    for sid in ["S0", "S1", "S2", "S3", "S4", "S5"]:
+        res = client.post(
+            "/api/demo/run",
+            json={"scenario_id": sid, "protected": True, "auto_approve": True},
+        )
+        assert res.status_code == 200
+
+    # Retrieve all completed orders
+    orders_res = client.get("/store/orders")
+    assert orders_res.status_code == 200
+    all_orders = orders_res.json()
+
+    # Filter orders created through the protected endpoint
+    protected_orders = [o for o in all_orders if o["endpoint"] == "protected"]
+
+    # Verify orders were created (from S0 and the first legitimate transaction of S4)
+    assert len(protected_orders) >= 2
+
+    # CRITICAL INVARIANT: Every single protected order must have payee STORE-ACCT-001
+    for order in protected_orders:
+        assert order["payee_id"] == "STORE-ACCT-001", (
+            f"Protected order {order['id']} had unexpected payee: {order['payee_id']}"
+        )
+
+    # Confirm zero protected orders were sent to any attacker account
+    assert not any(o["payee_id"] != "STORE-ACCT-001" for o in protected_orders)
 

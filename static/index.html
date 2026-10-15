@@ -3,23 +3,405 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IntentLock - Human Approval Prototype</title>
+    <title>IntentLock - Human Approval Dashboard</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+    <!-- Top Navigation Header -->
     <header>
-        <h1>IntentLock</h1>
-        <p class="subtitle">Cryptographic human approval prototype for AI agents</p>
+        <div class="nav-container">
+            <a href="/index.html" class="brand">
+                <div class="brand-icon">🔒</div>
+                <div>
+                    <span class="brand-title">IntentLock</span>
+                    <span class="brand-badge">Prototype</span>
+                </div>
+            </a>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/index.html" class="active">Dashboard</a></li>
+                    <li><a href="/demo.html">Attack Demo</a></li>
+                    <li><a href="/store.html">Mock Store</a></li>
+                </ul>
+            </nav>
+        </div>
     </header>
+
+    <!-- System Status Ribbon -->
+    <div class="status-bar">
+        <div class="status-bar-content">
+            <div class="status-indicator">
+                <div class="pulse-dot"></div>
+                <span id="system-status-text">Checking server status...</span>
+            </div>
+            <div>
+                <span id="public-key-badge" class="badge badge-protected">Ed25519 Token Issuer: Active</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
     <main>
-        <section class="card">
-            <h2>System Status</h2>
-            <p id="system-status">Status: Initializing...</p>
-        </section>
+        <div class="page-header">
+            <h1>Human Approval Dashboard</h1>
+            <p>Review and cryptographically authorize high-stakes actions proposed by autonomous AI agents.</p>
+        </div>
+
+        <!-- Honest Prototype Disclaimer -->
+        <div class="notice-box">
+            <strong>Prototype Notice:</strong> IntentLock demonstrates cryptographic binding between human approval and AI checkout actions. 
+            <!-- PROTOTYPE LIMITATION: Production needs WebAuthn/OAuth biometric authentication and WebSockets for real-time push. -->
+            <em>PROTOTYPE LIMITATION: The dashboard runs without user authentication. Production would enforce multi-factor authentication (e.g., WebAuthn/Passkeys) and secure push notifications.</em>
+        </div>
+
+        <div class="grid-2">
+            <!-- Left Column: Pending Approvals -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <span>🛡️ Pending Approvals</span>
+                            <span id="pending-count" class="badge badge-pending">0 Pending</span>
+                        </h2>
+                        <button id="refresh-btn" class="btn btn-secondary btn-sm" type="button">🔄 Refresh</button>
+                    </div>
+
+                    <div id="pending-container">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">✅</div>
+                            <div class="empty-state-text">No pending approval requests.</div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);">
+                                Run an attack scenario in the <a href="/demo.html" style="color: var(--accent);">Attack Demo</a> or submit a test proposal below.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Decided Intents History -->
+                <div class="card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">📜 Resolved Decisions History</h2>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Amount</th>
+                                    <th>Payee</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--text-muted);">Loading history...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Manual Intent Proposal Sandbox & Architecture Breakdown -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">➕ Propose Intent Sandbox</h2>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                        Simulate an AI agent submitting an intent proposal to the IntentLock API.
+                    </p>
+
+                    <form id="intent-form">
+                        <div class="form-group">
+                            <label class="form-label" for="agent-id-input">Agent ID</label>
+                            <input id="agent-id-input" class="form-control" type="text" value="shopper-agent-1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="merchant-id-input">Merchant ID</label>
+                            <input id="merchant-id-input" class="form-control" type="text" value="demo-store" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="item-input">Item</label>
+                            <input id="item-input" class="form-control" type="text" value="laptop-14in" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="amount-input">Amount (in Integer Cents)</label>
+                            <input id="amount-input" class="form-control" type="number" min="1" step="1" value="45000" required>
+                            <small id="amount-preview" style="color: var(--accent); font-size: 0.8rem; display: block; margin-top: 0.25rem;">
+                                Preview: $450.00
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="payee-input">Payee Account ID</label>
+                            <input id="payee-input" class="form-control" type="text" value="STORE-ACCT-001" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="summary-input">Summary / Justification</label>
+                            <textarea id="summary-input" class="form-control" rows="2" required>Purchase proposal requested for laptop checkout</textarea>
+                        </div>
+
+                        <button id="submit-intent-btn" class="btn btn-primary" type="submit" style="width: 100%;">
+                            Submit Proposal for Review
+                        </button>
+                    </form>
+                </div>
+
+                <!-- How It Works Explanation Card -->
+                <div class="card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">💡 How IntentLock Protects Users</h2>
+                    </div>
+                    <ol style="padding-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
+                        <li><strong>Intent Proposal:</strong> The agent requests human approval before high-stakes financial operations.</li>
+                        <li><strong>Human Authorization:</strong> The human verifies the item, price, and payee. Approving mints a single-use <strong>Ed25519 digital signature</strong>.</li>
+                        <li><strong>Cryptographic Binding:</strong> The token tightly couples the exact authorized item, maximum amount, payee, and single-use nonce.</li>
+                        <li><strong>Store Verification:</strong> The store verifier rejects any request where an attacker manipulated the payee or amount, even if the agent is fully compromised.</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
     </main>
+
+    <!-- Footer -->
     <footer>
-        <p>IntentLock Prototype &bull; Team Syntax Sweeties</p>
+        <p>IntentLock Prototype &bull; Cryptographic Human-in-the-Loop Security for Autonomous Agents</p>
     </footer>
+
+    <!-- Scripts -->
     <script src="/js/api.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            initSystemStatus();
+            await loadPendingIntents();
+            await loadHistory();
+
+            // Refresh button
+            document.getElementById("refresh-btn").addEventListener("click", async () => {
+                await loadPendingIntents();
+                await loadHistory();
+                showToast("Refreshed intents from server", "info");
+            });
+
+            // Live cents format preview
+            const amountInput = document.getElementById("amount-input");
+            const amountPreview = document.getElementById("amount-preview");
+            amountInput.addEventListener("input", (e) => {
+                const val = parseInt(e.target.value, 10);
+                amountPreview.textContent = `Preview: ${formatCents(val || 0)}`;
+            });
+
+            // Manual intent submission
+            document.getElementById("intent-form").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById("submit-intent-btn");
+                btn.disabled = true;
+
+                const payload = {
+                    agent_id: document.getElementById("agent-id-input").value.trim(),
+                    merchant_id: document.getElementById("merchant-id-input").value.trim(),
+                    item: document.getElementById("item-input").value.trim(),
+                    amount_cents: parseInt(document.getElementById("amount-input").value, 10),
+                    payee_id: document.getElementById("payee-input").value.trim(),
+                    summary: document.getElementById("summary-input").value.trim(),
+                };
+
+                try {
+                    const result = await IntentLockAPI.createIntent(payload);
+                    showToast(`Created pending intent: ${result.intent_id}`, "success");
+                    await loadPendingIntents();
+                } catch (err) {
+                    showToast(err.message, "danger");
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        // Load and render pending intents using strictly safe textContent updates
+        async function loadPendingIntents() {
+            const container = document.getElementById("pending-container");
+            const counter = document.getElementById("pending-count");
+
+            try {
+                const intents = await IntentLockAPI.listIntents("pending");
+                counter.textContent = `${intents.length} Pending`;
+
+                // Clear previous children safely
+                while (container.firstChild) {
+                    container.removeChild(container.firstChild);
+                }
+
+                if (!intents || intents.length === 0) {
+                    const empty = createEl("div", "", "empty-state");
+                    empty.appendChild(createEl("div", "✅", "empty-state-icon"));
+                    empty.appendChild(createEl("div", "No pending approval requests.", "empty-state-text"));
+                    const hint = createEl("p", "Run an attack scenario in the Attack Demo or submit a test proposal below.");
+                    hint.style.fontSize = "0.8rem";
+                    hint.style.color = "var(--text-muted)";
+                    empty.appendChild(hint);
+                    container.appendChild(empty);
+                    return;
+                }
+
+                intents.forEach((intent) => {
+                    const card = createEl("div", "", "card");
+                    card.style.marginBottom = "1rem";
+                    card.style.border = "1px solid var(--border-subtle)";
+
+                    // Header row: ID and Date
+                    const header = createEl("div", "", "card-header");
+                    header.style.marginBottom = "0.75rem";
+                    const title = createEl("h3", intent.id, "card-title");
+                    title.style.fontSize = "1rem";
+                    header.appendChild(title);
+                    header.appendChild(createEl("span", formatTimestamp(intent.created_at), "badge"));
+                    card.appendChild(header);
+
+                    // Details grid
+                    const details = createEl("div");
+                    details.style.fontSize = "0.875rem";
+                    details.style.display = "grid";
+                    details.style.gap = "0.5rem";
+
+                    // Item and Amount
+                    const row1 = createEl("div");
+                    row1.appendChild(createEl("strong", "Item: "));
+                    row1.appendChild(createEl("span", intent.item));
+                    row1.appendChild(createEl("span", " • "));
+                    row1.appendChild(createEl("strong", "Amount: "));
+                    const amtSpan = createEl("span", formatCents(intent.amount_cents));
+                    amtSpan.style.color = "var(--accent)";
+                    amtSpan.style.fontWeight = "bold";
+                    row1.appendChild(amtSpan);
+                    details.appendChild(row1);
+
+                    // Payee check (highlighting potential attacker forged payees!)
+                    const row2 = createEl("div");
+                    row2.appendChild(createEl("strong", "Payee: "));
+                    const payeeBadge = createEl("span", intent.payee_id, "badge");
+                    if (intent.payee_id === "STORE-ACCT-001") {
+                        payeeBadge.classList.add("badge-approved");
+                    } else {
+                        payeeBadge.classList.add("badge-blocked");
+                        const warnText = createEl("span", " ⚠️ Unauthorized Payee!", "badge-blocked");
+                        warnText.style.marginLeft = "0.5rem";
+                        row2.appendChild(warnText);
+                    }
+                    row2.appendChild(payeeBadge);
+                    details.appendChild(row2);
+
+                    // Summary
+                    const row3 = createEl("div");
+                    row3.style.color = "var(--text-secondary)";
+                    row3.style.fontSize = "0.825rem";
+                    row3.style.marginTop = "0.25rem";
+                    row3.appendChild(createEl("strong", "Agent Justification: "));
+                    row3.appendChild(createEl("span", intent.summary));
+                    details.appendChild(row3);
+
+                    card.appendChild(details);
+
+                    // Action buttons
+                    const btnGroup = createEl("div");
+                    btnGroup.style.display = "flex";
+                    btnGroup.style.gap = "0.75rem";
+                    btnGroup.style.marginTop = "1rem";
+
+                    const approveBtn = createEl("button", "✓ Approve (Issue Token)", ["btn", "btn-success", "btn-sm"]);
+                    approveBtn.type = "button";
+                    approveBtn.addEventListener("click", async () => {
+                        approveBtn.disabled = true;
+                        try {
+                            const res = await IntentLockAPI.approveIntent(intent.id);
+                            showToast(`Approved! Token: ${maskToken(res.token)}`, "success");
+                            await loadPendingIntents();
+                            await loadHistory();
+                        } catch (err) {
+                            showToast(err.message, "danger");
+                            approveBtn.disabled = false;
+                        }
+                    });
+
+                    const rejectBtn = createEl("button", "✕ Reject", ["btn", "btn-danger", "btn-sm"]);
+                    rejectBtn.type = "button";
+                    rejectBtn.addEventListener("click", async () => {
+                        rejectBtn.disabled = true;
+                        try {
+                            await IntentLockAPI.rejectIntent(intent.id);
+                            showToast(`Intent ${intent.id} rejected.`, "warning");
+                            await loadPendingIntents();
+                            await loadHistory();
+                        } catch (err) {
+                            showToast(err.message, "danger");
+                            rejectBtn.disabled = false;
+                        }
+                    });
+
+                    btnGroup.appendChild(approveBtn);
+                    btnGroup.appendChild(rejectBtn);
+                    card.appendChild(btnGroup);
+
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                container.textContent = "Error loading pending intents.";
+            }
+        }
+
+        // Load resolved intent history
+        async function loadHistory() {
+            const tbody = document.getElementById("history-table-body");
+            try {
+                const [approved, rejected] = await Promise.all([
+                    IntentLockAPI.listIntents("approved"),
+                    IntentLockAPI.listIntents("rejected"),
+                ]);
+
+                const all = [...approved, ...rejected].sort((a, b) => (b.decided_at || 0) - (a.decided_at || 0));
+
+                while (tbody.firstChild) {
+                    tbody.removeChild(tbody.firstChild);
+                }
+
+                if (all.length === 0) {
+                    const tr = createEl("tr");
+                    const td = createEl("td", "No resolved intents yet.", "");
+                    td.colSpan = 4;
+                    td.style.textAlign = "center";
+                    td.style.color = "var(--text-muted)";
+                    tr.appendChild(td);
+                    tbody.appendChild(tr);
+                    return;
+                }
+
+                all.slice(0, 8).forEach((item) => {
+                    const tr = createEl("tr");
+                    tr.appendChild(createEl("td", item.item));
+                    tr.appendChild(createEl("td", formatCents(item.amount_cents)));
+                    tr.appendChild(createEl("td", item.payee_id));
+
+                    const statusTd = createEl("td");
+                    const badge = createEl(
+                        "span",
+                        item.status.toUpperCase(),
+                        item.status === "approved" ? "badge-approved" : "badge-rejected"
+                    );
+                    badge.classList.add("badge");
+                    statusTd.appendChild(badge);
+                    tr.appendChild(statusTd);
+
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                tbody.textContent = "Error loading history.";
+            }
+        }
+    </script>
 </body>
 </html>

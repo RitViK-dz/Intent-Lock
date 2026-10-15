@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntentLock - Mock Merchant Store & Settlement Ledger</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header>
+        <div class="nav-container">
+            <a href="/index.html" class="brand">
+                <div class="brand-icon">🔒</div>
+                <div>
+                    <span class="brand-title">IntentLock</span>
+                    <span class="brand-badge">Prototype</span>
+                </div>
+            </a>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/index.html">Dashboard</a></li>
+                    <li><a href="/demo.html">Attack Demo</a></li>
+                    <li><a href="/store.html" class="active">Mock Store</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- System Status Ribbon -->
+    <div class="status-bar">
+        <div class="status-bar-content">
+            <div class="status-indicator">
+                <div class="pulse-dot"></div>
+                <span id="system-status-text">Checking server status...</span>
+            </div>
+            <div>
+                <span id="public-key-badge" class="badge badge-protected">Ed25519 Token Issuer: Active</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main>
+        <div class="page-header">
+            <h1>Demo Merchant Store & Orders Ledger</h1>
+            <p>Inspect the merchant catalog and compare orders completed through protected vs unprotected endpoints.</p>
+        </div>
+
+        <!-- Honest Prototype Disclaimer -->
+        <div class="notice-box">
+            <strong>Store Verification Architecture:</strong> In protected mode, the merchant verifier consumes single-use nonces and validates Ed25519 signatures against the issuer public key. 
+            In unprotected mode, checkout executes with zero cryptographic verification, exposing the store and customer to hijacked payees and duplicate charges.
+        </div>
+
+        <!-- Ledger Metrics Overview -->
+        <div class="grid-3" style="margin-bottom: 1.5rem;">
+            <div class="card" style="padding: 1rem 1.25rem;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Total Orders Completed</div>
+                <div id="stat-total-orders" style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;">0</div>
+            </div>
+
+            <div class="card" style="padding: 1rem 1.25rem;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Protected Orders (Verified)</div>
+                <div id="stat-protected-orders" style="font-size: 1.8rem; font-weight: 700; color: var(--success); margin-top: 0.25rem;">0</div>
+            </div>
+
+            <div class="card" style="padding: 1rem 1.25rem;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Unprotected Orders (Bypassed)</div>
+                <div id="stat-unprotected-orders" style="font-size: 1.8rem; font-weight: 700; color: var(--warning); margin-top: 0.25rem;">0</div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <!-- Left Column: Merchant Catalog & Store Info -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">🛍️ Merchant Catalog (`demo-store`)</h2>
+                        <span class="badge badge-protected">Verified Payee: STORE-ACCT-001</span>
+                    </div>
+
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                        Official product catalog available for AI agent purchases. All genuine purchases must settle to <code>STORE-ACCT-001</code>.
+                    </p>
+
+                    <div id="catalog-container" style="display: grid; gap: 0.75rem;">
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">Loading catalog...</div>
+                    </div>
+                </div>
+
+                <!-- Verifier Security Summary -->
+                <div class="card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">🔍 The 6 Verification Rules</h2>
+                    </div>
+                    <ul style="padding-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+                        <li><strong>Signature Validity:</strong> Verifies signature using issuer public key (no private keys in store).</li>
+                        <li><strong>Expiration (TTL):</strong> Rejects tokens older than their lifespan.</li>
+                        <li><strong>Store Binding:</strong> Ensures token is bound to <code>demo-store</code>.</li>
+                        <li><strong>Agent Identity:</strong> Confirms agent ID matches token subject.</li>
+                        <li><strong>Payee & Item Match:</strong> Payee must match token (blocks recipient swap attacks). Item must match (blocks item substitution).</li>
+                        <li><strong>Atomic Replay Guard:</strong> Nonce is atomically inserted into database; duplicate attempts are blocked instantly.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Right Column: Orders Ledger -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">📖 Store Settlement Ledger</h2>
+                        <button id="refresh-orders-btn" class="btn btn-secondary btn-sm" type="button">🔄 Refresh</button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Item</th>
+                                    <th>Amount</th>
+                                    <th>Payee Account</th>
+                                    <th>Endpoint</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-table-body">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                                        Loading orders...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>IntentLock Prototype &bull; Mock Store & Settlement Demonstration</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/api.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            initSystemStatus();
+            await loadCatalog();
+            await loadOrders();
+
+            document.getElementById("refresh-orders-btn").addEventListener("click", async () => {
+                await loadOrders();
+                showToast("Orders ledger refreshed", "info");
+            });
+        });
+
+        // Load store catalog
+        async function loadCatalog() {
+            const container = document.getElementById("catalog-container");
+            try {
+                const catalog = await IntentLockAPI.getStoreCatalog();
+                while (container.firstChild) {
+                    container.removeChild(container.firstChild);
+                }
+
+                catalog.forEach((product) => {
+                    const itemCard = createEl("div", "", "card");
+                    itemCard.style.padding = "0.85rem 1rem";
+                    itemCard.style.display = "flex";
+                    itemCard.style.justifyContent = "space-between";
+                    itemCard.style.alignItems = "center";
+                    itemCard.style.border = "1px solid var(--border-subtle)";
+
+                    const left = createEl("div");
+                    const name = createEl("div", product.item, "item-name");
+                    name.style.fontWeight = "600";
+                    name.style.color = "var(--text-primary)";
+                    left.appendChild(name);
+
+                    const payee = createEl("div", `Payee: ${product.payee_id}`, "item-payee");
+                    payee.style.fontSize = "0.75rem";
+                    payee.style.color = "var(--text-muted)";
+                    left.appendChild(payee);
+
+                    const right = createEl("div");
+                    const price = createEl("span", formatCents(product.amount_cents), "badge");
+                    price.style.fontSize = "0.85rem";
+                    price.style.background = "rgba(56, 189, 248, 0.15)";
+                    price.style.color = "var(--accent)";
+                    right.appendChild(price);
+
+                    itemCard.appendChild(left);
+                    itemCard.appendChild(right);
+                    container.appendChild(itemCard);
+                });
+            } catch (err) {
+                container.textContent = "Error loading store catalog.";
+            }
+        }
+
+        // Load orders ledger safely using textContent
+        async function loadOrders() {
+            const tbody = document.getElementById("orders-table-body");
+            const statTotal = document.getElementById("stat-total-orders");
+            const statProtected = document.getElementById("stat-protected-orders");
+            const statUnprotected = document.getElementById("stat-unprotected-orders");
+
+            try {
+                const orders = await IntentLockAPI.getStoreOrders();
+
+                // Compute stats
+                statTotal.textContent = orders.length.toString();
+                const protCount = orders.filter((o) => o.endpoint === "protected").length;
+                const unprotCount = orders.filter((o) => o.endpoint === "unprotected").length;
+                statProtected.textContent = protCount.toString();
+                statUnprotected.textContent = unprotCount.toString();
+
+                while (tbody.firstChild) {
+                    tbody.removeChild(tbody.firstChild);
+                }
+
+                if (!orders || orders.length === 0) {
+                    const tr = createEl("tr");
+                    const td = createEl("td", "No orders recorded yet. Run a scenario in the Attack Demo.", "");
+                    td.colSpan = 5;
+                    td.style.textAlign = "center";
+                    td.style.color = "var(--text-muted)";
+                    td.style.padding = "2rem";
+                    tr.appendChild(td);
+                    tbody.appendChild(tr);
+                    return;
+                }
+
+                // Render orders newest first
+                orders.slice().reverse().forEach((order) => {
+                    const tr = createEl("tr");
+
+                    // Order ID (truncate preview)
+                    const idTd = createEl("td", order.id.substring(0, 14) + "...");
+                    idTd.title = order.id;
+                    tr.appendChild(idTd);
+
+                    // Item
+                    tr.appendChild(createEl("td", order.item));
+
+                    // Amount formatted from cents
+                    const amtTd = createEl("td", formatCents(order.amount_cents));
+                    amtTd.style.fontWeight = "600";
+                    tr.appendChild(amtTd);
+
+                    // Payee with security warning if diverted
+                    const payeeTd = createEl("td");
+                    const isAttacker = order.payee_id.includes("ATTACKER");
+                    const payeeBadge = createEl(
+                        "span",
+                        order.payee_id,
+                        isAttacker ? ["badge", "badge-blocked"] : ["badge", "badge-approved"]
+                    );
+                    payeeTd.appendChild(payeeBadge);
+                    if (isAttacker) {
+                        const warnTag = createEl("div", "🚨 Hijacked!", "");
+                        warnTag.style.fontSize = "0.7rem";
+                        warnTag.style.color = "var(--danger)";
+                        warnTag.style.fontWeight = "bold";
+                        payeeTd.appendChild(warnTag);
+                    }
+                    tr.appendChild(payeeTd);
+
+                    // Endpoint type
+                    const epTd = createEl("td");
+                    const isProt = order.endpoint === "protected";
+                    const epBadge = createEl(
+                        "span",
+                        isProt ? "🛡️ Protected" : "⚠️ Unprotected",
+                        isProt ? ["badge", "badge-protected"] : ["badge", "badge-unprotected"]
+                    );
+                    epTd.appendChild(epBadge);
+                    tr.appendChild(epTd);
+
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                tbody.textContent = "Error loading store orders.";
+            }
+        }
+    </script>
+</body>
+</html>

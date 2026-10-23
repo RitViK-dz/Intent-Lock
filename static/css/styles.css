@@ -309,6 +309,12 @@ header {
     min-width: 0;
 }
 
+@media (max-width: 1400px) {
+    .store-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 768px) {
     .grid-2, .grid-3 {
         grid-template-columns: 1fr;
@@ -473,6 +479,7 @@ header {
     min-width: 0;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
+    -webkit-overflow-scrolling: touch;
 }
 
 table {
@@ -488,9 +495,38 @@ thead {
     border-bottom: 1px solid var(--border-subtle);
 }
 
-th, td {
+th {
     padding: 0.75rem 1rem;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+}
+
+td {
+    padding: 0.75rem 1rem;
+    overflow-wrap: break-word;
+}
+
+/* Store Settlement Ledger Table */
+.ledger-table {
+    min-width: 620px;
+}
+
+.ledger-table th,
+.ledger-table .col-item,
+.ledger-table .cell-item,
+.ledger-table .col-amount,
+.ledger-table .cell-amount,
+.ledger-table .col-endpoint,
+.ledger-table .cell-endpoint {
+    white-space: nowrap;
+}
+
+.ledger-table .col-order-id,
+.ledger-table .cell-order-id {
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 tbody tr {

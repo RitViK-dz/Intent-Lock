@@ -71,7 +71,7 @@
             </div>
         </div>
 
-        <div class="grid-2">
+        <div class="grid-2 store-grid">
             <!-- Left Column: Merchant Catalog & Store Info -->
             <div>
                 <div class="card">
@@ -114,14 +114,14 @@
                     </div>
 
                     <div class="table-wrapper">
-                        <table>
+                        <table class="ledger-table">
                             <thead>
                                 <tr>
-                                    <th>Order ID</th>
-                                    <th>Item</th>
-                                    <th>Amount</th>
-                                    <th>Payee Account</th>
-                                    <th>Endpoint</th>
+                                    <th class="col-order-id">Order ID</th>
+                                    <th class="col-item">Item</th>
+                                    <th class="col-amount">Amount</th>
+                                    <th class="col-payee">Payee Account</th>
+                                    <th class="col-endpoint">Endpoint</th>
                                 </tr>
                             </thead>
                             <tbody id="orders-table-body">
@@ -145,147 +145,6 @@
 
     <!-- Scripts -->
     <script src="/js/api.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", async () => {
-            initSystemStatus();
-            await loadCatalog();
-            await loadOrders();
-
-            document.getElementById("refresh-orders-btn").addEventListener("click", async () => {
-                await loadOrders();
-                showToast("Orders ledger refreshed", "info");
-            });
-        });
-
-        // Load store catalog
-        async function loadCatalog() {
-            const container = document.getElementById("catalog-container");
-            try {
-                const catalog = await IntentLockAPI.getStoreCatalog();
-                while (container.firstChild) {
-                    container.removeChild(container.firstChild);
-                }
-
-                catalog.forEach((product) => {
-                    const itemCard = createEl("div", "", "card");
-                    itemCard.style.padding = "0.85rem 1rem";
-                    itemCard.style.display = "flex";
-                    itemCard.style.justifyContent = "space-between";
-                    itemCard.style.alignItems = "center";
-                    itemCard.style.border = "1px solid var(--border-subtle)";
-
-                    const left = createEl("div");
-                    const name = createEl("div", product.item, "item-name");
-                    name.style.fontWeight = "600";
-                    name.style.color = "var(--text-primary)";
-                    left.appendChild(name);
-
-                    const payee = createEl("div", `Payee: ${product.payee_id}`, "item-payee");
-                    payee.style.fontSize = "0.75rem";
-                    payee.style.color = "var(--text-muted)";
-                    left.appendChild(payee);
-
-                    const right = createEl("div");
-                    const price = createEl("span", formatCents(product.amount_cents), "badge");
-                    price.style.fontSize = "0.85rem";
-                    price.style.background = "rgba(56, 189, 248, 0.15)";
-                    price.style.color = "var(--accent)";
-                    right.appendChild(price);
-
-                    itemCard.appendChild(left);
-                    itemCard.appendChild(right);
-                    container.appendChild(itemCard);
-                });
-            } catch (err) {
-                container.textContent = "Error loading store catalog.";
-            }
-        }
-
-        // Load orders ledger safely using textContent
-        async function loadOrders() {
-            const tbody = document.getElementById("orders-table-body");
-            const statTotal = document.getElementById("stat-total-orders");
-            const statProtected = document.getElementById("stat-protected-orders");
-            const statUnprotected = document.getElementById("stat-unprotected-orders");
-
-            try {
-                const orders = await IntentLockAPI.getStoreOrders();
-
-                // Compute stats
-                statTotal.textContent = orders.length.toString();
-                const protCount = orders.filter((o) => o.endpoint === "protected").length;
-                const unprotCount = orders.filter((o) => o.endpoint === "unprotected").length;
-                statProtected.textContent = protCount.toString();
-                statUnprotected.textContent = unprotCount.toString();
-
-                while (tbody.firstChild) {
-                    tbody.removeChild(tbody.firstChild);
-                }
-
-                if (!orders || orders.length === 0) {
-                    const tr = createEl("tr");
-                    const td = createEl("td", "No orders recorded yet. Run a scenario in the Attack Demo.", "");
-                    td.colSpan = 5;
-                    td.style.textAlign = "center";
-                    td.style.color = "var(--text-muted)";
-                    td.style.padding = "2rem";
-                    tr.appendChild(td);
-                    tbody.appendChild(tr);
-                    return;
-                }
-
-                // Render orders newest first
-                orders.slice().reverse().forEach((order) => {
-                    const tr = createEl("tr");
-
-                    // Order ID (truncate preview)
-                    const idTd = createEl("td", order.id.substring(0, 14) + "...");
-                    idTd.title = order.id;
-                    tr.appendChild(idTd);
-
-                    // Item
-                    tr.appendChild(createEl("td", order.item));
-
-                    // Amount formatted from cents
-                    const amtTd = createEl("td", formatCents(order.amount_cents));
-                    amtTd.style.fontWeight = "600";
-                    tr.appendChild(amtTd);
-
-                    // Payee with security warning if diverted
-                    const payeeTd = createEl("td");
-                    const isAttacker = order.payee_id.includes("ATTACKER");
-                    const payeeBadge = createEl(
-                        "span",
-                        order.payee_id,
-                        isAttacker ? ["badge", "badge-blocked"] : ["badge", "badge-approved"]
-                    );
-                    payeeTd.appendChild(payeeBadge);
-                    if (isAttacker) {
-                        const warnTag = createEl("div", "🚨 Hijacked!", "");
-                        warnTag.style.fontSize = "0.7rem";
-                        warnTag.style.color = "var(--danger)";
-                        warnTag.style.fontWeight = "bold";
-                        payeeTd.appendChild(warnTag);
-                    }
-                    tr.appendChild(payeeTd);
-
-                    // Endpoint type
-                    const epTd = createEl("td");
-                    const isProt = order.endpoint === "protected";
-                    const epBadge = createEl(
-                        "span",
-                        isProt ? "🛡️ Protected" : "⚠️ Unprotected",
-                        isProt ? ["badge", "badge-protected"] : ["badge", "badge-unprotected"]
-                    );
-                    epTd.appendChild(epBadge);
-                    tr.appendChild(epTd);
-
-                    tbody.appendChild(tr);
-                });
-            } catch (err) {
-                tbody.textContent = "Error loading store orders.";
-            }
-        }
-    </script>
+    <script src="/js/store.js"></script>
 </body>
 </html>

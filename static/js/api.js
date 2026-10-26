@@ -167,6 +167,18 @@ const IntentLockAPI = {
         }
         return res.json();
     },
+
+    // Reset demo database state (gated by DEMO_MODE)
+    async resetDemo() {
+        const res = await fetch("/api/demo/reset", {
+            method: "POST",
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `Demo reset failed (${res.status})`);
+        }
+        return res.json();
+    },
 };
 
 // Global system status updater

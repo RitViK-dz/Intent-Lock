@@ -365,3 +365,18 @@ def list_orders(
     with db_session(db_path) as conn:
         cursor = conn.execute(sql, (int(limit),))
         return [dict(row) for row in cursor.fetchall()]
+
+
+def reset_demo_data(db_path: Path | str | None = None) -> None:
+    """Clear orders, intents, nonces, and audit entries for demo reset.
+
+    PROTOTYPE LIMITATION: In production environments, tables are never wiped via an API.
+    This reset utility is strictly for simulated demonstrations and is only accessible
+    when the DEMO_MODE setting is explicitly set to true.
+    """
+    with db_session(db_path) as conn:
+        conn.execute("DELETE FROM orders;")
+        conn.execute("DELETE FROM intents;")
+        conn.execute("DELETE FROM used_nonces;")
+        conn.execute("DELETE FROM audit_log;")
+

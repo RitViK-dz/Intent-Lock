@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 
 from agent_sim.scenarios import list_scenarios, get_scenario
 from agent_sim.naive_agent import run_scenario
+from app.config import settings
+from app.db import reset_demo_data
 from app.models import RunDemoRequest, RunDemoResponse
 
 router = APIRouter(prefix="/api/demo", tags=["demo"])
@@ -53,3 +55,23 @@ def execute_scenario(demo_req: RunDemoRequest, request: Request) -> RunDemoRespo
         orders_created=result["orders_created"],
         reason=result.get("reason"),
     )
+
+
+@router.post(
+    "/reset",
+    summary="Reset demo state (clears orders, intents, nonces, and audit trail; requires DEMO_MODE=true)",
+)
+def reset_demo() -> dict[str, str]:
+    """Reset the database demo state by clearing all orders, intents, nonces, and audit entries.
+
+    Security Rule: This operation is strictly prohibited in non-demo environments and will fail
+    with HTTP 403 Forbidden unless the DEMO_MODE environment variable is explicitly set to true.
+    """
+    if not settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo reset is disabled. Set DEMO_MODE=true in environment to enable.",
+        )
+
+    reset_demo_data(settings.db_path)
+    return {"status": "ok", "message": "Demo data reset successfully"}

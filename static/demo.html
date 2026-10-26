@@ -40,121 +40,158 @@
         </div>
     </div>
 
-    <!-- Main Content Area -->
+    <!-- Main Content Area (Centered Container max-width: 1200px) -->
     <main>
         <div class="page-header">
-            <h1>Prompt Injection Attack & Defense Simulator</h1>
-            <p>Compare how autonomous agents behave against indirect prompt injection with and without IntentLock protection.</p>
+            <h1>Prompt Injection Attack &amp; Defense Simulator</h1>
+            <p>Live comparison of an autonomous agent executing purchases with and without IntentLock cryptographic protection.</p>
         </div>
 
         <!-- Honest Prototype Disclaimer -->
         <div class="notice-box">
-            <strong>Honest Disclosure:</strong> The AI agent in this simulator is a deterministic simulation of a hijacked agent, NOT a real live LLM. 
-            It demonstrates the mechanics of prompt injection and shows how cryptographic authorization tokens prevent compromised agents from completing fraudulent checkout transactions.
+            <strong>Honest Disclosure:</strong> The simulated agent demonstrates how indirect prompt injection hijacks an agent's reasoning. IntentLock prevents compromised agents from completing unauthorized transactions by requiring an Ed25519 signed intent token matching checkout parameters.
         </div>
 
-        <!-- Stacked Layout: Scenario Setup on Top, Execution Trace Below at Full Container Width -->
+        <!-- Top Scenario Setup & Injection Highlight Card -->
         <div class="card" style="margin-bottom: 2rem;">
             <div class="card-header">
-                <h2 class="card-title">⚙️ Scenario Setup</h2>
+                <h2 class="card-title">🎯 Scenario Selection &amp; Prompt Injection Payload</h2>
             </div>
 
-            <!-- Security Mode Toggle -->
-            <div class="form-group">
-                <label class="form-label" style="font-weight: 600;">Protection Mode</label>
-                <div style="display: flex; gap: 0.75rem; margin-top: 0.25rem; flex-wrap: wrap;">
-                    <label style="flex: 1; min-width: 260px; display: flex; align-items: center; gap: 0.5rem; background: rgba(56, 189, 248, 0.1); border: 1px solid var(--accent); padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); cursor: pointer;">
-                        <input type="radio" name="protection-mode" value="true" checked id="mode-protected">
-                        <div>
-                            <strong style="color: var(--accent); font-size: 0.85rem;">🛡️ Protected Mode</strong>
-                            <div style="font-size: 0.75rem; color: var(--text-secondary);">IntentLock token required</div>
-                        </div>
-                    </label>
-
-                    <label style="flex: 1; min-width: 260px; display: flex; align-items: center; gap: 0.5rem; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); cursor: pointer;">
-                        <input type="radio" name="protection-mode" value="false" id="mode-unprotected">
-                        <div>
-                            <strong style="color: var(--warning); font-size: 0.85rem;">⚠️ Unprotected Mode</strong>
-                            <div style="font-size: 0.75rem; color: var(--text-secondary);">Naive agent direct checkout</div>
-                        </div>
-                    </label>
+            <!-- Scenario Dropdown & Action Controls -->
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1.5rem;">
+                <div style="flex: 2; min-width: 280px;">
+                    <label class="form-label" for="scenario-select" style="font-weight: 600;">Select Scenario</label>
+                    <select id="scenario-select" class="form-control" style="font-size: 0.95rem; font-weight: 500;">
+                        <option value="S0">Loading scenarios...</option>
+                    </select>
                 </div>
-            </div>
-
-            <!-- Scenario Selector -->
-            <div class="form-group" style="margin-top: 1.25rem;">
-                <label class="form-label" for="scenario-select">Select Attack Scenario</label>
-                <select id="scenario-select" class="form-control">
-                    <option value="S0">S0: Clean Purchase (Normal baseline, no attack)</option>
-                    <option value="S1">S1: Recipient Swap (Diverts funds to ATTACKER-ACCT-999)</option>
-                    <option value="S2">S2: Amount Inflation (Inflates purchase price to $900.00)</option>
-                    <option value="S3">S3: Item Swap (Substitutes unauthorized product)</option>
-                    <option value="S4">S4: Token Replay (Reuses consumed token / duplicate charge)</option>
-                    <option value="S5">S5: Forged Intent Request (Sneaks intent to dashboard)</option>
-                </select>
-            </div>
-
-            <!-- Scenario Detail Box -->
-            <div id="scenario-details-box" style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 1rem; margin-top: 1.25rem;">
-                <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
-                    <strong>User Prompt: </strong><span id="detail-user-task" style="color: var(--text-secondary);">Loading...</span>
-                </div>
-                <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
-                    <strong>Target Store: </strong><span id="detail-merchant" style="color: var(--text-secondary);">demo-store</span>
-                </div>
-                <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
-                    <strong>Page Content: </strong>
-                    <pre id="detail-page-text" style="font-size: 0.8rem; background: #0b0f19; padding: 0.5rem; border-radius: 4px; overflow-x: auto; margin-top: 0.25rem; color: var(--text-secondary);"></pre>
-                </div>
-                <div id="detail-injection-container" style="display: none; margin-top: 0.5rem;">
-                    <strong style="color: var(--danger); font-size: 0.85rem;">🚨 Hidden Prompt Injection:</strong>
-                    <div id="detail-injection-text" style="font-size: 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.5rem; border-radius: 4px; color: #fca5a5; margin-top: 0.25rem;"></div>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; flex: 3; min-width: 320px;">
+                    <button id="run-attack-btn" class="btn btn-primary" type="button" style="flex: 2; min-width: 160px; font-size: 1rem; padding: 0.65rem 1rem;">
+                        ⚡ Run attack
+                    </button>
+                    <button id="run-all-btn" class="btn btn-secondary" type="button" style="flex: 2; min-width: 160px; font-size: 0.9rem; padding: 0.65rem 0.85rem;">
+                        📊 Run all scenarios
+                    </button>
+                    <button id="reset-demo-btn" class="btn btn-outline" type="button" style="flex: 1; min-width: 120px; font-size: 0.85rem; padding: 0.65rem 0.75rem;">
+                        🔄 Reset demo
+                    </button>
                 </div>
             </div>
 
-            <!-- Run Button -->
-            <button id="run-simulation-btn" class="btn btn-primary" type="button" style="width: 100%; margin-top: 1.5rem; font-size: 1rem; padding: 0.75rem;">
-                🚀 Run Scenario Simulation
-            </button>
+            <!-- Scenario Context & Highlighted Injected Directive Box -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 1.25rem;">
+                <div style="margin-bottom: 0.75rem; font-size: 0.925rem;">
+                    <strong style="color: var(--text-primary);">👤 User's Intended Task: </strong>
+                    <span id="scenario-user-task" style="color: var(--accent); font-weight: 500;">Loading...</span>
+                </div>
+
+                <!-- Highlighted Injected Prompt Directive -->
+                <div id="scenario-injected-box" class="injected-directive-box">
+                    <div id="scenario-injected-title" style="font-weight: 700; margin-bottom: 0.35rem;">
+                        🚨 Hidden Injected Prompt Directive (Hijack Payload):
+                    </div>
+                    <div id="scenario-injected-text">Loading injected directive...</div>
+                </div>
+            </div>
         </div>
 
-        <!-- Execution Trace / Results Card BELOW at Full Container Width -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">📡 Simulation Execution Trace</h2>
-                <div id="run-status-badge" class="badge">Awaiting Run</div>
-            </div>
-
-            <!-- Summary Outcome Strip -->
-            <div id="outcome-strip" style="display: none; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                    <div>
-                        <span style="font-size: 0.85rem; color: var(--text-secondary);">Outcome: </span>
-                        <strong id="outcome-text" style="font-size: 0.95rem;">—</strong>
-                    </div>
-                    <div>
-                        <span style="font-size: 0.85rem; color: var(--text-secondary);">Reason: </span>
-                        <span id="reason-badge" class="badge">—</span>
-                    </div>
-                    <div>
-                        <span style="font-size: 0.85rem; color: var(--text-secondary);">Orders Created: </span>
-                        <strong id="orders-count-text" style="color: var(--accent);">0</strong>
-                    </div>
+        <!-- S5 Human In The Loop Notice Card (Appears during S5) -->
+        <div id="s5-alert-card" class="s5-callout-card" style="display: none;">
+            <div class="s5-callout-icon">⚠️</div>
+            <div class="s5-callout-body">
+                <div class="s5-callout-title">Human-in-the-Loop Required: Forged Intent Detected</div>
+                <div class="s5-callout-desc">
+                    The injected prompt tricked the agent into filing an intent requesting funds for <code>ATTACKER-ACCT-999</code>. 
+                    IntentLock flagged this unapproved intent as <strong>pending</strong>. No token was issued. 
+                    A human must review and reject this fraudulent intent on the <a href="/index.html" style="color: #c084fc; text-decoration: underline;">Approval Dashboard</a>.
                 </div>
             </div>
+        </div>
 
-            <!-- Plain English Verdict Explanation -->
-            <div id="verdict-explanation" style="display: none; font-size: 0.85rem; padding: 0.75rem; border-radius: var(--radius-sm); margin-bottom: 1rem;"></div>
-
-            <!-- Step-by-Step Timeline -->
-            <div id="trace-container">
-                <div class="empty-state">
-                    <div class="empty-state-icon">🤖</div>
-                    <div class="empty-state-text">Ready to run scenario.</div>
-                    <p style="font-size: 0.8rem; color: var(--text-muted);">
-                        Select a scenario above and click "Run Scenario Simulation".
+        <!-- Two Panels Side-by-Side: Left Unprotected vs Right Protected -->
+        <div class="demo-split-panels">
+            <!-- LEFT PANEL: Without IntentLock (unprotected) -->
+            <div class="card demo-panel">
+                <div class="panel-header-unprot">
+                    <h2 class="card-title" style="color: #fca5a5; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>⚠️</span> Without IntentLock (unprotected)
+                    </h2>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                        Naive agent directly executes checkout at store without cryptographic verification.
                     </p>
                 </div>
+
+                <!-- Large Unprotected Result Badge -->
+                <div id="unprot-result-badge" class="result-banner" style="display: none;"></div>
+
+                <!-- Animated Trace Timeline -->
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Agent Execution Trace
+                    </div>
+                    <div id="unprot-trace-container" class="trace-timeline" style="max-height: 480px; overflow-y: auto;">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🤖</div>
+                            <div class="empty-state-text">Ready to run scenario.</div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);">
+                                Click "Run attack" above to observe agent execution step-by-step.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: With IntentLock (protected) -->
+            <div class="card demo-panel">
+                <div class="panel-header-prot">
+                    <h2 class="card-title" style="color: #86efac; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🛡️</span> With IntentLock (protected)
+                    </h2>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                        Store verifier enforces Ed25519 token signatures matching payee, amount, item, and nonce.
+                    </p>
+                </div>
+
+                <!-- Large Protected Result Badge -->
+                <div id="prot-result-badge" class="result-banner" style="display: none;"></div>
+
+                <!-- Animated Trace Timeline -->
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Agent Execution Trace
+                    </div>
+                    <div id="prot-trace-container" class="trace-timeline" style="max-height: 480px; overflow-y: auto;">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🛡️</div>
+                            <div class="empty-state-text">Ready to run scenario.</div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);">
+                                Click "Run attack" above to observe cryptographic verification step-by-step.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Matrix Summary Comparison Table -->
+        <div id="summary-table-section" class="card" style="display: none; margin-top: 2rem;">
+            <div class="card-header">
+                <h2 class="card-title">📊 All Scenarios Security Comparison Matrix</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="min-width: 220px;">Scenario</th>
+                            <th style="min-width: 260px;">Without IntentLock (unprotected)</th>
+                            <th style="min-width: 260px;">With IntentLock (protected)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summary-table-body">
+                        <!-- Populated safely via textContent in demo.js -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
@@ -166,177 +203,6 @@
 
     <!-- Scripts -->
     <script src="/js/api.js"></script>
-    <script>
-        let scenariosData = [];
-
-        document.addEventListener("DOMContentLoaded", async () => {
-            initSystemStatus();
-            await loadScenarios();
-
-            const scenarioSelect = document.getElementById("scenario-select");
-            scenarioSelect.addEventListener("change", () => {
-                updateScenarioDetails(scenarioSelect.value);
-            });
-
-            document.getElementById("run-simulation-btn").addEventListener("click", runSimulation);
-        });
-
-        // Load scenarios from API
-        async function loadScenarios() {
-            try {
-                scenariosData = await IntentLockAPI.getScenarios();
-                const select = document.getElementById("scenario-select");
-                while (select.firstChild) {
-                    select.removeChild(select.firstChild);
-                }
-
-                scenariosData.forEach((s) => {
-                    const opt = createEl("option", `${s.id}: ${s.title}`);
-                    opt.value = s.id;
-                    select.appendChild(opt);
-                });
-
-                if (scenariosData.length > 0) {
-                    updateScenarioDetails(scenariosData[0].id);
-                }
-            } catch (err) {
-                showToast("Failed to load attack scenarios", "danger");
-            }
-        }
-
-        // Update the scenario description box
-        function updateScenarioDetails(scenarioId) {
-            const scenario = scenariosData.find((s) => s.id === scenarioId);
-            if (!scenario) return;
-
-            document.getElementById("detail-user-task").textContent = scenario.user_task;
-            document.getElementById("detail-merchant").textContent = scenario.merchant_id;
-            document.getElementById("detail-page-text").textContent = scenario.page_text;
-
-            const injContainer = document.getElementById("detail-injection-container");
-            const injText = document.getElementById("detail-injection-text");
-            if (scenario.injected_instruction) {
-                injContainer.style.display = "block";
-                injText.textContent = scenario.injected_instruction;
-            } else {
-                injContainer.style.display = "none";
-            }
-        }
-
-        // Execute scenario simulation
-        async function runSimulation() {
-            const btn = document.getElementById("run-simulation-btn");
-            const scenarioId = document.getElementById("scenario-select").value;
-            const protectedMode = document.getElementById("mode-protected").checked;
-            const traceContainer = document.getElementById("trace-container");
-            const outcomeStrip = document.getElementById("outcome-strip");
-            const outcomeText = document.getElementById("outcome-text");
-            const reasonBadge = document.getElementById("reason-badge");
-            const ordersCountText = document.getElementById("orders-count-text");
-            const runStatusBadge = document.getElementById("run-status-badge");
-            const verdictBox = document.getElementById("verdict-explanation");
-
-            btn.disabled = true;
-            runStatusBadge.textContent = "Running...";
-            runStatusBadge.className = "badge badge-pending";
-
-            try {
-                const res = await IntentLockAPI.runScenario(scenarioId, protectedMode, true);
-
-                // Show outcome strip
-                outcomeStrip.style.display = "block";
-                outcomeText.textContent = res.outcome;
-                reasonBadge.textContent = res.reason || "None";
-                ordersCountText.textContent = res.orders_created.length.toString();
-
-                // Format badge styling
-                reasonBadge.className = "badge";
-                if (res.outcome === "approved") {
-                    runStatusBadge.textContent = "APPROVED";
-                    runStatusBadge.className = "badge badge-approved";
-                    reasonBadge.classList.add("badge-approved");
-                } else if (res.outcome === "blocked") {
-                    runStatusBadge.textContent = "BLOCKED";
-                    runStatusBadge.className = "badge badge-blocked";
-                    reasonBadge.classList.add("badge-blocked");
-                } else if (res.outcome === "needs_human_review") {
-                    runStatusBadge.textContent = "NEEDS REVIEW";
-                    runStatusBadge.className = "badge badge-needs-review";
-                    reasonBadge.classList.add("badge-needs-review");
-                } else {
-                    runStatusBadge.textContent = "COMPLETED (UNPROTECTED)";
-                    runStatusBadge.className = "badge badge-unprotected";
-                    reasonBadge.classList.add("badge-unprotected");
-                }
-
-                // Render Verdict Explanation
-                verdictBox.style.display = "block";
-                renderVerdict(res, scenarioId, protectedMode, verdictBox);
-
-                // Render execution trace steps safely with textContent
-                while (traceContainer.firstChild) {
-                    traceContainer.removeChild(traceContainer.firstChild);
-                }
-
-                const timeline = createEl("div", "", "trace-timeline");
-                res.trace.forEach((step) => {
-                    const isInjection = step.message.includes("PROMPT INJECTION TRIGGERED");
-                    const stepDiv = createEl("div", "", ["trace-step", isInjection ? "injection" : "normal"]);
-
-                    const stepHeader = createEl("div", `Step ${step.step} • ${step.timestamp}`, "trace-step-header");
-                    stepDiv.appendChild(stepHeader);
-
-                    const stepContent = createEl("div", step.message, "trace-step-content");
-                    stepDiv.appendChild(stepContent);
-
-                    timeline.appendChild(stepDiv);
-                });
-
-                traceContainer.appendChild(timeline);
-                showToast("Simulation executed successfully", "info");
-            } catch (err) {
-                showToast(err.message, "danger");
-                runStatusBadge.textContent = "Error";
-                runStatusBadge.className = "badge badge-blocked";
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        // Generate explainable verdict for judges
-        function renderVerdict(res, scenarioId, protectedMode, container) {
-            while (container.firstChild) {
-                container.removeChild(container.firstChild);
-            }
-
-            if (protectedMode) {
-                if (res.outcome === "approved") {
-                    container.style.background = "var(--success-bg)";
-                    container.style.border = "1px solid rgba(16, 185, 129, 0.4)";
-                    container.style.color = "#a7f3d0";
-                    container.appendChild(createEl("strong", "🛡️ Legitimate Purchase Approved: "));
-                    container.appendChild(createEl("span", "The checkout parameters perfectly matched the human-approved intent. Order was safely created."));
-                } else if (res.outcome === "blocked") {
-                    container.style.background = "var(--danger-bg)";
-                    container.style.border = "1px solid rgba(239, 68, 68, 0.4)";
-                    container.style.color = "#fecaca";
-                    container.appendChild(createEl("strong", "🚨 Attack Neutralized by IntentLock: "));
-                    container.appendChild(createEl("span", `The agent obeyed the malicious prompt injection, but the store verifier rejected the checkout request (${res.reason}). Zero unauthorized funds moved.`));
-                } else if (res.outcome === "needs_human_review") {
-                    container.style.background = "var(--purple-bg)";
-                    container.style.border = "1px solid rgba(168, 85, 247, 0.4)";
-                    container.style.color = "#e9d5ff";
-                    container.appendChild(createEl("strong", "⚠️ Human In The Loop Catch: "));
-                    container.appendChild(createEl("span", "The injected text tricked the agent into filing an intent for an attacker payee. The system flagged it for review on the dashboard. No token was issued."));
-                }
-            } else {
-                container.style.background = "var(--warning-bg)";
-                container.style.border = "1px solid rgba(245, 158, 11, 0.4)";
-                container.style.color = "#fef08a";
-                container.appendChild(createEl("strong", "⚠️ Vulnerability Demonstrated: "));
-                container.appendChild(createEl("span", "Without IntentLock cryptographic tokens, the store accepted the unverified checkout. The prompt injection hijack succeeded and payment was delivered to the attacker or duplicate orders were created."));
-            }
-        }
-    </script>
+    <script src="/js/demo.js"></script>
 </body>
 </html>

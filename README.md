@@ -52,3 +52,7 @@ Visit the health check at: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/
 ```bash
 pytest -q
 ```
+
+### 6. Demo mode
+
+`DEMO_MODE=true` enables the demo reset endpoint (`POST /api/demo/reset`), which clears orders, intents, nonces and audit entries. It is for presentations only. Never enable it in production. The default is `false`.

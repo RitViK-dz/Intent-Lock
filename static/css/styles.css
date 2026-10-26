@@ -682,3 +682,124 @@ footer a {
 footer a:hover {
     color: var(--accent);
 }
+
+/* Phase 9 Demo Showcase Styles */
+.demo-split-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    width: 100%;
+    min-width: 0;
+    margin-top: 1.5rem;
+}
+
+@media (max-width: 960px) {
+    .demo-split-panels {
+        grid-template-columns: 1fr;
+    }
+}
+
+.demo-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 520px;
+}
+
+.panel-header-unprot {
+    border-bottom: 2px solid rgba(239, 68, 68, 0.4);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.panel-header-prot {
+    border-bottom: 2px solid rgba(16, 185, 129, 0.4);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.injected-directive-box {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1rem;
+    color: #fca5a5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.875rem;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    margin-top: 0.5rem;
+}
+
+.injected-directive-box.clean {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #a7f3d0;
+}
+
+.result-banner {
+    padding: 1.1rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    overflow-wrap: anywhere;
+    animation: fadeInStep 0.4s ease-out;
+}
+
+.result-banner-danger {
+    background: rgba(239, 68, 68, 0.18);
+    border: 2px solid var(--danger);
+    color: #fca5a5;
+}
+
+.result-banner-success {
+    background: rgba(16, 185, 129, 0.18);
+    border: 2px solid var(--success);
+    color: #6ee7b7;
+}
+
+.result-banner-warning {
+    background: rgba(168, 85, 247, 0.18);
+    border: 2px solid var(--purple);
+    color: #d8b4fe;
+}
+
+.result-explanation-text {
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.s5-callout-card {
+    background: rgba(168, 85, 247, 0.12);
+    border: 2px solid var(--purple);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    animation: fadeInStep 0.4s ease-out;
+}
+
+.trace-step-animated {
+    animation: fadeInStep 0.35s ease-out;
+}
+
+@keyframes fadeInStep {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+

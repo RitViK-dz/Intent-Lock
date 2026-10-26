@@ -247,3 +247,45 @@ def test_all_scenarios_protected_orders_payee_integrity():
     # Confirm zero protected orders were sent to any attacker account
     assert not any(o["payee_id"] != "STORE-ACCT-001" for o in protected_orders)
 
+
+def test_demo_reset_forbidden_when_demo_mode_false():
+    """Verify POST /api/demo/reset returns 403 Forbidden when DEMO_MODE is false."""
+    orig_mode = settings.demo_mode
+    try:
+        object.__setattr__(settings, "demo_mode", False)
+        res = client.post("/api/demo/reset")
+        assert res.status_code == 403
+        assert "Demo reset is disabled" in res.json().get("detail", "")
+    finally:
+        object.__setattr__(settings, "demo_mode", orig_mode)
+
+
+def test_demo_reset_clears_state_when_demo_mode_true():
+    """Verify POST /api/demo/reset clears orders, intents, nonces, and audit logs when DEMO_MODE is true."""
+    # First create some state by running S0
+    client.post(
+        "/api/demo/run",
+        json={"scenario_id": "S0", "protected": False, "auto_approve": True},
+    )
+    # Verify orders exist
+    orders_before = client.get("/store/orders").json()
+    assert len(orders_before) >= 1
+
+    orig_mode = settings.demo_mode
+    try:
+        object.__setattr__(settings, "demo_mode", True)
+        res = client.post("/api/demo/reset")
+        assert res.status_code == 200
+        assert res.json() == {"status": "ok", "message": "Demo data reset successfully"}
+
+        # Verify orders are cleared
+        orders_after = client.get("/store/orders").json()
+        assert len(orders_after) == 0
+
+        # Verify intents are cleared
+        intents_after = client.get("/api/intents").json()
+        assert len(intents_after) == 0
+    finally:
+        object.__setattr__(settings, "demo_mode", orig_mode)
+
+

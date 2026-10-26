@@ -55,3 +55,20 @@ def test_static_js_served():
     assert res.status_code == 200
     assert "javascript" in res.headers.get("content-type", "")
     assert "textContent" in res.text
+
+
+def test_static_demo_js_served():
+    """Verify GET /js/demo.js returns 200 with JavaScript content type and contains Phase 9 elements."""
+    res = client.get("/js/demo.js")
+    assert res.status_code == 200
+    assert "javascript" in res.headers.get("content-type", "")
+    assert "runAttack" in res.text
+    assert "REASON_EXPLANATIONS" in res.text
+
+
+def test_static_store_js_served():
+    """Verify GET /js/store.js returns 200 with JavaScript content type."""
+    res = client.get("/js/store.js")
+    assert res.status_code == 200
+    assert "javascript" in res.headers.get("content-type", "")
+

@@ -11,9 +11,9 @@
 
 IntentLock introduces cryptographic human approval verification without meaningful latency overhead for consumer or business checkouts.
 
-- **Token Verification Median Latency**: **7.501 ms**
-- **Token Verification 95th Percentile**: **18.701 ms**
-- **Token Creation Median Latency**: **0.048 ms**
+- **Token Verification Median Latency**: **5.928 ms**
+- **Token Verification 95th Percentile**: **8.773 ms**
+- **Token Creation Median Latency**: **0.045 ms**
 
 All measurements were dynamically computed using `time.perf_counter` across an isolated SQLite database and fresh Ed25519 keypair.
 
@@ -26,11 +26,11 @@ The verifier executes signature verification with the Ed25519 public key, decode
 | Metric | Latency (milliseconds) |
 |---|---|
 | **Runs Evaluated** | 1000 |
-| **Median (p50)** | 7.501 ms |
-| **95th Percentile (p95)** | 18.701 ms |
-| **Maximum Latency** | 38.792 ms |
-| **Mean Latency** | 9.213 ms |
-| **Minimum Latency** | 5.535 ms |
+| **Median (p50)** | 5.928 ms |
+| **95th Percentile (p95)** | 8.773 ms |
+| **Maximum Latency** | 18.131 ms |
+| **Mean Latency** | 6.358 ms |
+| **Minimum Latency** | 5.249 ms |
 
 ---
 
@@ -40,10 +40,10 @@ Measures Ed25519 digital signature generation, JSON encoding, and Base64URL stri
 
 | Metric | Latency (milliseconds) |
 |---|---|
-| **Median (p50)** | 0.048 ms |
-| **95th Percentile (p95)** | 0.172 ms |
-| **Maximum Latency** | 1.509 ms |
-| **Mean Latency** | 0.079 ms |
+| **Median (p50)** | 0.045 ms |
+| **95th Percentile (p95)** | 0.066 ms |
+| **Maximum Latency** | 0.446 ms |
+| **Mean Latency** | 0.048 ms |
 | **Minimum Latency** | 0.042 ms |
 
 ---
@@ -51,5 +51,5 @@ Measures Ed25519 digital signature generation, JSON encoding, and Base64URL stri
 ## 4. Engineering & Presentation Notes
 
 1. **Pure Asymmetric Math**: Verification relies strictly on the Ed25519 public key. There is zero symmetric secret sharing and no network RPC to the token issuer at checkout time.
-2. **Atomic Replay Prevention**: The SQLite unique constraint on `used_nonces` guarantees atomic single-use semantics even under concurrent attempts.
+2. **Atomic Replay Prevention**: The SQLite primary-key constraint on `used_nonces` means concurrent attempts with the same nonce result in one success.
 3. **PROTOTYPE LIMITATION**: In a globally distributed high-throughput store, SQLite would be replaced by Redis with Lua scripting or a distributed relational database (e.g., PostgreSQL with row-level locking) for cross-datacenter nonce de-duplication.

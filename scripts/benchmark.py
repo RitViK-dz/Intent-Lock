@@ -189,7 +189,7 @@ Measures Ed25519 digital signature generation, JSON encoding, and Base64URL stri
 ## 4. Engineering & Presentation Notes
 
 1. **Pure Asymmetric Math**: Verification relies strictly on the Ed25519 public key. There is zero symmetric secret sharing and no network RPC to the token issuer at checkout time.
-2. **Atomic Replay Prevention**: The SQLite unique constraint on `used_nonces` guarantees atomic single-use semantics even under concurrent attempts.
+2. **Atomic Replay Prevention**: The SQLite primary-key constraint on `used_nonces` means concurrent attempts with the same nonce result in one success.
 3. **PROTOTYPE LIMITATION**: In a globally distributed high-throughput store, SQLite would be replaced by Redis with Lua scripting or a distributed relational database (e.g., PostgreSQL with row-level locking) for cross-datacenter nonce de-duplication.
 """
 

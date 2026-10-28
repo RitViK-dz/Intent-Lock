@@ -88,27 +88,36 @@ graph TD
 
 Tokens are compact, URL-safe, two-part authorization credentials: `base64url(payload) + "." + base64url(signature)`.
 
+The authority token signs the exact raw payload bytes directly without requiring canonicalization. Tokens carrying `agent_pub` use schema version `v=2` for cryptographic proof-of-possession binding; tokens without `agent_pub` remain `v=1`.
+
 | Field | Type | Description | Example |
 |---|---|---|---|
-| `v` | `int` | Token schema version (currently `1`) | `1` |
-| `jti` | `str` | Cryptographic unique nonce (UUID4 hex) | `f47ac10b58cc4372a5670e02b2c3d479` |
-| `iss` | `str` | Token issuer identifier | `intentlock-issuer` |
-| `sub` | `str` | User who approved the intent | `demo-user` |
-| `aud` | `str` | Merchant store authorized to redeem token | `demo-store` |
+| `v` | `int` | Token schema version (`1` for standard tokens, `2` for agent key-bound tokens) | `2` |
+| `nonce` | `str` | Cryptographic single-use nonce (16 random bytes as 32 hex chars) | `f47ac10b58cc4372a5670e02b2c3d479` |
+| `user_id` | `str` | User who approved the intent | `demo-user` |
 | `agent_id` | `str` | Agent authorized to present the token | `shopper-agent-1` |
+| `merchant_id` | `str` | Merchant store authorized to redeem token | `demo-store` |
 | `action` | `str` | Authorized action type | `purchase` |
 | `item` | `str` | Specific product name or SKU approved | `laptop-14in` |
-| `max_amount_cents` | `int` | Maximum spending ceiling (integer cents) | `45000` ($450.00) |
+| `max_amount_cents` | `int` | Maximum spending ceiling (strictly integer cents) | `45000` ($450.00) |
 | `currency` | `str` | Currency code (ISO 4217) | `USD` |
-| `payee_id` | `str` | Authorized recipient account | `STORE-ACCT-001` |
+| `payee_id` | `str` | Authorized destination recipient account | `STORE-ACCT-001` |
 | `iat` | `int` | Unix epoch timestamp of token issuance | `1700000000` |
 | `exp` | `int` | Unix epoch timestamp of token expiration | `1700000300` |
+| `agent_pub` | `str \| None` | Base64URL raw 32-byte Ed25519 public key (present in `v=2` tokens only) | `q8...` (43 chars) |
+
+### Proof of Possession (`agent_proof`)
+At checkout (`POST /store/checkout`), an agent presenting a `v=2` token must submit an extra field, `agent_proof`:
+- An Ed25519 digital signature over canonical request bytes: JSON of `{agent_id, merchant_id, item, amount_cents, payee_id, nonce}` with `sort_keys=True` and `separators=(",", ":")` in UTF-8.
+- The verifier validates `agent_proof` using `agent_pub` decoded from the token.
+- If `agent_pub` is present, a valid `agent_proof` is strictly required. A missing proof or invalid signature returns reason code `BAD_AGENT_PROOF`.
+- Tokens without `agent_pub` remain `v=1` and do not require proof.
 
 ---
 
-## 12 Attack Scenarios Evaluated
+## 13 Attack Scenarios Evaluated
 
-IntentLock evaluates 12 distinct attack vectors covering prompt injection payloads, cryptographic tampering, and concurrency attacks:
+IntentLock evaluates 13 distinct attack vectors covering prompt injection payloads, cryptographic tampering, and concurrency attacks:
 
 | Attack ID | Threat Vector | Expected Reason Code | Protected Outcome | Unprotected Baseline |
 |---|---|---|---|---|
@@ -124,6 +133,7 @@ IntentLock evaluates 12 distinct attack vectors covering prompt injection payloa
 | **A10** | **Missing Token**: Agent checkout submitted without authorization token | `MISSING_TOKEN` | 🛡️ **BLOCKED** | 🚨 **ATTACK SUCCEEDED** |
 | **A11** | **Malformed Token**: Corrupted or non-base64 token string submitted | `MALFORMED_TOKEN` | 🛡️ **BLOCKED** | 🚨 **ATTACK SUCCEEDED** |
 | **A12** | **Concurrency Race**: 10 simultaneous threads submit identical token at once | `TOKEN_REPLAYED` | 🛡️ **1 Approved, 9 Blocked** | 🚨 **10x Duplicate Charge** |
+| **A13** | **Stolen Token**: Token used without the agent's private key (proof-of-possession) | `BAD_AGENT_PROOF` | 🛡️ **BLOCKED** | 🚨 **ATTACK SUCCEEDED** |
 
 ---
 
@@ -171,7 +181,7 @@ $env:DEMO_MODE="true"
 
 All evaluation scripts compute real measurements dynamically without hard-coded results:
 
-### 1. Run Complete Automated Test Suite (93 Tests)
+### 1. Run Complete Automated Test Suite (107 Tests)
 ```powershell
 .\.venv\Scripts\pytest -q
 ```
@@ -181,14 +191,14 @@ Measures Ed25519 signing and verification latency across 1,000 transactions and 
 ```powershell
 .\.venv\Scripts\python scripts/benchmark.py
 ```
-*Results: ~0.11 ms token creation latency, ~17.8 ms full verification + SQLite atomic nonce consumption.*
+*Results: ~0.063 ms token creation latency, 6.694 ms verification median (2026-10-28, Windows 11, 1,000 runs, including SQLite writes and atomic nonce consumption).*
 
-### 3. Run 12-Attack Defense Evaluation Suite
-Executes all 12 attack vectors against `/store/checkout` and `/store/checkout-unprotected`:
+### 3. Run 13-Attack Defense Evaluation Suite
+Executes all 13 attack vectors against `/store/checkout` and `/store/checkout-unprotected`:
 ```powershell
 .\.venv\Scripts\python scripts/run_attack_suite.py
 ```
-*Results: `12/12 attacks blocked`, `12/12 attacks succeeded without IntentLock`.*
+*Results: `13/13 attacks blocked`, `13/13 attacks succeeded without IntentLock`.*
 
 ---
 
@@ -219,7 +229,7 @@ Intent-Lock/
 ├── keys/                       # Git-ignored local private and public keys
 ├── scripts/                    # Slide measurement & evaluation scripts
 │   ├── benchmark.py            # 1,000-iteration performance benchmark
-│   └── run_attack_suite.py     # 12-attack defense verification script
+│   └── run_attack_suite.py     # 13-attack defense verification script
 ├── static/                     # Pure Vanilla Frontend (No build step, no CDN)
 │   ├── css/styles.css          # Dark-mode responsive design system
 │   ├── index.html              # Human approval dashboard
@@ -229,7 +239,7 @@ Intent-Lock/
 │       ├── api.js              # Typed frontend API wrapper
 │       ├── demo.js             # 600ms delayed trace animation controller
 │       └── store.js            # Store ledger & catalog rendering
-├── tests/                      # 93 automated tests (pytest + httpx)
+├── tests/                      # 107 automated tests (pytest + httpx)
 ├── .env.example                # Safe environment configuration template
 ├── AGENTS.md                   # Project rules and engineering guidelines
 └── requirements.txt            # Pinned Python dependencies

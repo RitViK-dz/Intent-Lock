@@ -47,7 +47,8 @@ When an AI agent is compromised via indirect prompt injection, its cognitive rea
   - `amount_cents`: Total spending ceiling in integer cents.
   - `payee_id`: Intended bank/settlement account.
   - `summary`: Human-readable justification of the purchase.
-- Receives a token upon human approval and presents it to merchant checkout endpoints.
+  - `agent_pub`: Optional Base64URL-encoded raw 32-byte Ed25519 public key for proof-of-possession binding. The agent private key is held strictly in memory only (never written to disk or the repository).
+- Receives a token upon human approval and presents it to merchant checkout endpoints along with an `agent_proof` signature for `v=2` tokens.
 
 ### 2.2. The IntentLock Authority (`app/routers/intents.py`, `app/tokens.py`, `app/crypto.py`)
 - **Intent Storage**: Persists proposed intents in SQLite with status `pending`.
@@ -68,7 +69,8 @@ When an AI agent is compromised via indirect prompt injection, its cognitive rea
   7. Item binding (`payload.item == request.item`).
   8. Payee account matching (`payload.payee_id == request.payee_id`).
   9. Amount ceiling check (`request.amount_cents <= payload.max_amount_cents`).
-  10. Single-use nonce consumption (`consume_nonce(payload.jti)`).
+  10. Agent Proof-of-Possession check: If the token contains `agent_pub` (`v=2` tokens), a valid `agent_proof` is strictly required (`BAD_AGENT_PROOF` on missing or invalid proof). The agent proof signs canonical JSON (`sort_keys=True`, `separators=(',', ':')`, UTF-8) over `{agent_id, merchant_id, item, amount_cents, payee_id, nonce}`, unlike the authority token which signs the exact raw payload bytes sent. The agent private key is kept strictly in memory.
+  11. Single-use nonce consumption (`consume_nonce(payload.nonce)`): Executed atomically as the LAST step so that a failed agent proof or parameter mismatch never burns a legitimate token.
 - Rejects invalid requests with HTTP `403 Forbidden` and explicit machine-readable `ReasonCode` values.
 
 ---
@@ -87,21 +89,22 @@ IntentLock authorization tokens adopt an RFC 7515 / RFC 7519 inspired two-part c
 ### 3.2. Payload Schema
 ```json
 {
-  "v": 1,
-  "jti": "7a305f2c41c7423ba4c017efad8d7c92",
-  "iss": "intentlock-issuer",
-  "sub": "demo-user",
-  "aud": "demo-store",
+  "v": 2,
+  "nonce": "7a305f2c41c7423ba4c017efad8d7c92",
+  "user_id": "demo-user",
   "agent_id": "shopper-agent-1",
+  "merchant_id": "demo-store",
   "action": "purchase",
   "item": "laptop-14in",
   "max_amount_cents": 45000,
   "currency": "USD",
   "payee_id": "STORE-ACCT-001",
   "iat": 1700000000,
-  "exp": 1700000300
+  "exp": 1700000300,
+  "agent_pub": "A3YMDWlx5cGBAfKlLqtaKJyN8aH7dlFvo7WDqaaqd0g"
 }
 ```
+*(Tokens issued without `agent_pub` use `"v": 1` and omit the `agent_pub` field).*
 
 ---
 
@@ -124,7 +127,8 @@ CREATE TABLE intents (
     summary TEXT,
     status TEXT CHECK (status IN ('pending', 'approved', 'rejected')),
     created_at INTEGER,
-    decided_at INTEGER
+    decided_at INTEGER,
+    agent_pub TEXT
 );
 ```
 

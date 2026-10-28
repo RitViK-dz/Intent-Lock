@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntentLock - Live Approval Dashboard</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header>
+        <div class="nav-container">
+            <a href="/index.html" class="brand">
+                <div class="brand-icon">🔒</div>
+                <div>
+                    <span class="brand-title">IntentLock</span>
+                    <span class="brand-badge">Prototype</span>
+                </div>
+            </a>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/index.html">Home</a></li>
+                    <li><a href="/dashboard.html" class="active">Approvals</a></li>
+                    <li><a href="/audit.html">Audit Log</a></li>
+                    <li><a href="/demo.html">Attack Demo</a></li>
+                    <li><a href="/store.html">Mock Store</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- System Status Ribbon -->
+    <div class="status-bar">
+        <div class="status-bar-content">
+            <div class="status-indicator">
+                <div class="pulse-dot"></div>
+                <span id="system-status-text">Checking server status...</span>
+            </div>
+            <div>
+                <span id="public-key-badge" class="badge badge-protected">Ed25519 Token Issuer: Active</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main>
+        <div class="page-header">
+            <h1>Autonomous Agent Approval Dashboard</h1>
+            <p>Review high-stakes actions proposed by AI agents and cryptographically authorize or reject them.</p>
+        </div>
+
+        <!-- Honest Prototype Disclaimer -->
+        <div class="notice-box">
+            <strong>Human-in-the-Loop Prototype:</strong> This dashboard polls for pending intent proposals every 2 seconds. 
+            When you approve an intent, IntentLock issues an Ed25519-signed single-use token strictly bound to the approved parameters.
+            <em>PROTOTYPE LIMITATION: Production environments require hardware-backed WebAuthn authentication to prevent rogue agents from self-approving.</em>
+        </div>
+
+        <!-- Pending Approval Requests Section -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span>🛡️ Pending Approvals</span>
+                    <span id="pending-count-badge" class="badge badge-pending">0 Pending</span>
+                </h2>
+                <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem;">
+                    <span class="pulse-dot" style="width: 6px; height: 6px;"></span>
+                    <span>Live Syncing (2s)</span>
+                </div>
+            </div>
+
+            <!-- Container for Approval Required Cards -->
+            <div id="pending-cards-container">
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <div class="empty-state-text">No pending approval requests.</div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">
+                        Trigger a scenario in the <a href="/demo.html" style="color: var(--accent); text-decoration: underline;">Attack Demo</a> (like S5) to observe pending intents appear here.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Decisions History Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📜 Recent Decisions History</h2>
+                <button id="refresh-history-btn" class="btn btn-secondary btn-sm" type="button">🔄 Refresh</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="min-width: 140px;">Item</th>
+                            <th style="min-width: 110px;">Amount</th>
+                            <th style="min-width: 180px;">Payee</th>
+                            <th style="min-width: 140px;">Merchant</th>
+                            <th style="min-width: 110px;">Status</th>
+                            <th style="min-width: 130px;">Decided</th>
+                        </tr>
+                    </thead>
+                    <tbody id="decisions-table-body">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading decisions history...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>IntentLock Prototype &bull; Cryptographic Defense Against Hijacked AI Agents</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/api.js"></script>
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

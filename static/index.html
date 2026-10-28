@@ -19,7 +19,9 @@
             </a>
             <nav>
                 <ul class="nav-links">
-                    <li><a href="/index.html" class="active">Dashboard</a></li>
+                    <li><a href="/index.html" class="active">Home</a></li>
+                    <li><a href="/dashboard.html">Approvals</a></li>
+                    <li><a href="/audit.html">Audit Log</a></li>
                     <li><a href="/demo.html">Attack Demo</a></li>
                     <li><a href="/store.html">Mock Store</a></li>
                 </ul>
@@ -44,7 +46,7 @@
     <main>
         <div class="page-header">
             <h1>Human Approval Dashboard</h1>
-            <p>Review and cryptographically authorize high-stakes actions proposed by autonomous AI agents.</p>
+            <p>Review and cryptographically authorize high-stakes actions proposed by autonomous AI agents. Go to the <a href="/dashboard.html" style="color: var(--accent); text-decoration: underline;">Live Approvals View</a> or inspect the <a href="/audit.html" style="color: var(--accent); text-decoration: underline;">Security Audit Trail</a>.</p>
         </div>
 
         <!-- Honest Prototype Disclaimer -->
@@ -223,6 +225,17 @@
             });
         });
 
+        const approvedPanelsIndex = new Map();
+
+        function formatCountdown(expiresAtSec) {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const diff = expiresAtSec - nowSec;
+            if (diff <= 0) return "Token expired";
+            const mins = Math.floor(diff / 60);
+            const secs = diff % 60;
+            return `${mins}m ${secs < 10 ? "0" : ""}${secs}s remaining`;
+        }
+
         // Load and render pending intents using strictly safe textContent updates
         async function loadPendingIntents() {
             const container = document.getElementById("pending-container");
@@ -232,12 +245,27 @@
                 const intents = await IntentLockAPI.listIntents("pending");
                 counter.textContent = `${intents.length} Pending`;
 
-                // Clear previous children safely
-                while (container.firstChild) {
-                    container.removeChild(container.firstChild);
+                let approvedZone = document.getElementById("index-approved-zone");
+                let pendingZone = document.getElementById("index-pending-zone");
+
+                if (!approvedZone || !pendingZone) {
+                    while (container.firstChild) {
+                        container.removeChild(container.firstChild);
+                    }
+                    approvedZone = createEl("div");
+                    approvedZone.id = "index-approved-zone";
+                    container.appendChild(approvedZone);
+
+                    pendingZone = createEl("div");
+                    pendingZone.id = "index-pending-zone";
+                    container.appendChild(pendingZone);
                 }
 
-                if (!intents || intents.length === 0) {
+                while (pendingZone.firstChild) {
+                    pendingZone.removeChild(pendingZone.firstChild);
+                }
+
+                if (intents.length === 0 && approvedPanelsIndex.size === 0) {
                     const empty = createEl("div", "", "empty-state");
                     empty.appendChild(createEl("div", "✅", "empty-state-icon"));
                     empty.appendChild(createEl("div", "No pending approval requests.", "empty-state-text"));
@@ -245,7 +273,7 @@
                     hint.style.fontSize = "0.8rem";
                     hint.style.color = "var(--text-muted)";
                     empty.appendChild(hint);
-                    container.appendChild(empty);
+                    pendingZone.appendChild(empty);
                     return;
                 }
 
@@ -263,7 +291,46 @@
                     header.appendChild(createEl("span", formatTimestamp(intent.created_at), "badge"));
                     card.appendChild(header);
 
-                    // Details grid
+                    // Large text for Agent and Merchant (Prominent Display)
+                    const agentMerchRow = createEl("div");
+                    agentMerchRow.style.display = "grid";
+                    agentMerchRow.style.gridTemplateColumns = "repeat(auto-fit, minmax(min(100%, 200px), 1fr))";
+                    agentMerchRow.style.gap = "0.75rem";
+                    agentMerchRow.style.marginBottom = "0.75rem";
+                    agentMerchRow.style.padding = "0.6rem 0.85rem";
+                    agentMerchRow.style.background = "rgba(15, 23, 42, 0.6)";
+                    agentMerchRow.style.borderRadius = "var(--radius-sm)";
+                    agentMerchRow.style.border = "1px solid var(--border-subtle)";
+
+                    const agentBlock = createEl("div");
+                    const agentLbl = createEl("div", "PROPOSING AGENT");
+                    agentLbl.style.fontSize = "0.7rem";
+                    agentLbl.style.color = "var(--text-muted)";
+                    agentLbl.style.fontWeight = "600";
+                    agentBlock.appendChild(agentLbl);
+                    const agentVal = createEl("div", intent.agent_id);
+                    agentVal.style.fontSize = "1.15rem";
+                    agentVal.style.fontWeight = "700";
+                    agentVal.style.color = "#38bdf8";
+                    agentBlock.appendChild(agentVal);
+                    agentMerchRow.appendChild(agentBlock);
+
+                    const merchBlock = createEl("div");
+                    const merchLbl = createEl("div", "MERCHANT STORE");
+                    merchLbl.style.fontSize = "0.7rem";
+                    merchLbl.style.color = "var(--text-muted)";
+                    merchLbl.style.fontWeight = "600";
+                    merchBlock.appendChild(merchLbl);
+                    const merchVal = createEl("div", intent.merchant_id);
+                    merchVal.style.fontSize = "1.15rem";
+                    merchVal.style.fontWeight = "700";
+                    merchVal.style.color = "#a78bfa";
+                    merchBlock.appendChild(merchVal);
+                    agentMerchRow.appendChild(merchBlock);
+
+                    card.appendChild(agentMerchRow);
+
+                    // Details grid: Item, Amount, Payee
                     const details = createEl("div");
                     details.style.fontSize = "0.875rem";
                     details.style.display = "grid";
@@ -272,12 +339,16 @@
                     // Item and Amount
                     const row1 = createEl("div");
                     row1.appendChild(createEl("strong", "Item: "));
-                    row1.appendChild(createEl("span", intent.item));
+                    const itemSpan = createEl("span", intent.item);
+                    itemSpan.style.fontSize = "1.05rem";
+                    itemSpan.style.fontWeight = "700";
+                    row1.appendChild(itemSpan);
                     row1.appendChild(createEl("span", " • "));
                     row1.appendChild(createEl("strong", "Amount: "));
                     const amtSpan = createEl("span", formatCents(intent.amount_cents));
                     amtSpan.style.color = "var(--accent)";
                     amtSpan.style.fontWeight = "bold";
+                    amtSpan.style.fontSize = "1.05rem";
                     row1.appendChild(amtSpan);
                     details.appendChild(row1);
 
@@ -319,8 +390,9 @@
                         approveBtn.disabled = true;
                         try {
                             const res = await IntentLockAPI.approveIntent(intent.id);
-                            showToast(`Approved! Token: ${maskToken(res.token)}`, "success");
-                            await loadPendingIntents();
+                            card.remove();
+                            showApprovedPanelIndex(intent, res.token, res.expires_at);
+                            showToast("Intent approved! Token created.", "success");
                             await loadHistory();
                         } catch (err) {
                             showToast(err.message, "danger");
@@ -347,11 +419,104 @@
                     btnGroup.appendChild(rejectBtn);
                     card.appendChild(btnGroup);
 
-                    container.appendChild(card);
+                    pendingZone.appendChild(card);
                 });
             } catch (err) {
                 container.textContent = "Error loading pending intents.";
             }
+        }
+
+        // Render Approved confirmation panel on screen until dismissed (keeps token strictly in memory)
+        function showApprovedPanelIndex(intent, fullToken, expiresAtSec) {
+            const approvedZone = document.getElementById("index-approved-zone");
+            if (!approvedZone) return;
+
+            const panel = createEl("div", "", "card");
+            panel.style.marginBottom = "1rem";
+            panel.style.border = "2px solid rgba(16, 185, 129, 0.5)";
+            panel.style.background = "linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(15, 23, 42, 0.85))";
+
+            const header = createEl("div", "", "card-header");
+            header.style.marginBottom = "0.75rem";
+            const title = createEl("h3", `Approved: ${intent.item}`, "card-title");
+            title.style.color = "var(--success)";
+            header.appendChild(title);
+
+            const dismissBtn = createEl("button", "✕ Dismiss", ["btn", "btn-secondary", "btn-sm"]);
+            header.appendChild(dismissBtn);
+            panel.appendChild(header);
+
+            // Expiry Box with live countdown
+            const expiryBox = createEl("div");
+            expiryBox.style.background = "rgba(0, 0, 0, 0.3)";
+            expiryBox.style.padding = "0.75rem 1rem";
+            expiryBox.style.borderRadius = "var(--radius-sm)";
+            expiryBox.style.marginBottom = "0.75rem";
+
+            const localTimeStr = new Date(expiresAtSec * 1000).toLocaleTimeString();
+            const expLabel = createEl("div", `Token expires at ${localTimeStr} (local time)`);
+            expLabel.style.fontSize = "0.85rem";
+            expLabel.style.color = "var(--text-secondary)";
+            expiryBox.appendChild(expLabel);
+
+            const countdownText = createEl("div", `⏳ ${formatCountdown(expiresAtSec)}`);
+            countdownText.style.fontSize = "1rem";
+            countdownText.style.fontWeight = "700";
+            countdownText.style.color = "var(--success)";
+            countdownText.style.marginTop = "0.25rem";
+            expiryBox.appendChild(countdownText);
+            panel.appendChild(expiryBox);
+
+            const timer = setInterval(() => {
+                const rem = formatCountdown(expiresAtSec);
+                countdownText.textContent = `⏳ ${rem}`;
+                if (rem === "Token expired") {
+                    countdownText.style.color = "var(--danger)";
+                }
+            }, 1000);
+
+            // Button row: "Copy token" (token in memory only)
+            const btnRow = createEl("div");
+            btnRow.style.display = "flex";
+            btnRow.style.alignItems = "center";
+            btnRow.style.gap = "0.75rem";
+            btnRow.style.flexWrap = "wrap";
+
+            const copyBtn = createEl("button", "Copy token", ["btn", "btn-primary", "btn-sm"]);
+            copyBtn.type = "button";
+            copyBtn.addEventListener("click", async () => {
+                try {
+                    await navigator.clipboard.writeText(fullToken);
+                    copyBtn.textContent = "✓ Copied!";
+                    setTimeout(() => { copyBtn.textContent = "Copy token"; }, 2000);
+                } catch (e) {
+                    const temp = document.createElement("textarea");
+                    temp.value = fullToken;
+                    document.body.appendChild(temp);
+                    temp.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(temp);
+                    copyBtn.textContent = "✓ Copied!";
+                    setTimeout(() => { copyBtn.textContent = "Copy token"; }, 2000);
+                }
+            });
+            btnRow.appendChild(copyBtn);
+
+            const memNotice = createEl("span", "🔒 Token held securely in memory (never written to screen).");
+            memNotice.style.fontSize = "0.8rem";
+            memNotice.style.color = "var(--text-muted)";
+            btnRow.appendChild(memNotice);
+            panel.appendChild(btnRow);
+
+            dismissBtn.addEventListener("click", () => {
+                clearInterval(timer);
+                approvedPanelsIndex.delete(intent.id);
+                panel.remove();
+                loadPendingIntents();
+            });
+
+            approvedPanelsIndex.set(intent.id, { timer, element: panel });
+            approvedZone.prepend(panel);
         }
 
         // Load resolved intent history

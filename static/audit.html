@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntentLock - Live Security Audit Log</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header>
+        <div class="nav-container">
+            <a href="/index.html" class="brand">
+                <div class="brand-icon">🔒</div>
+                <div>
+                    <span class="brand-title">IntentLock</span>
+                    <span class="brand-badge">Prototype</span>
+                </div>
+            </a>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="/index.html">Home</a></li>
+                    <li><a href="/dashboard.html">Approvals</a></li>
+                    <li><a href="/audit.html" class="active">Audit Log</a></li>
+                    <li><a href="/demo.html">Attack Demo</a></li>
+                    <li><a href="/store.html">Mock Store</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- System Status Ribbon -->
+    <div class="status-bar">
+        <div class="status-bar-content">
+            <div class="status-indicator">
+                <div class="pulse-dot"></div>
+                <span id="system-status-text">Checking server status...</span>
+            </div>
+            <div>
+                <span id="public-key-badge" class="badge badge-protected">Ed25519 Token Issuer: Active</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main>
+        <div class="page-header">
+            <h1>Immutable Security Audit Trail</h1>
+            <p>Live forensic log recording all intent creations, human decisions, and merchant checkout verification attempts.</p>
+        </div>
+
+        <!-- Honest Prototype Disclaimer -->
+        <div class="notice-box">
+            <strong>Security Invariant:</strong> Every verification attempt is permanently recorded in the append-only audit trail. 
+            Raw authorization tokens and private keys are <em>never</em> logged.
+            <em>PROTOTYPE LIMITATION: In a production cluster, audit logs are streamed to an immutable WORM (Write Once, Read Many) SIEM service.</em>
+        </div>
+
+        <!-- Audit Table Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span>📋 Forensic Audit Entries</span>
+                    <span id="audit-count-badge" class="badge badge-protected">0 Events</span>
+                </h2>
+                <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem;">
+                    <span class="pulse-dot" style="width: 6px; height: 6px;"></span>
+                    <span>Auto-refreshing every 2s</span>
+                </div>
+            </div>
+
+            <!-- Table of Audit Events -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="min-width: 110px;">Time</th>
+                            <th style="min-width: 160px;">Event</th>
+                            <th style="min-width: 180px;">Reason Code</th>
+                            <th style="min-width: 320px;">Summary / Forensic Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-table-body">
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading audit records...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>IntentLock Prototype &bull; Cryptographic Defense Against Hijacked AI Agents</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/api.js"></script>
+    <script src="/js/audit.js"></script>
+</body>
+</html>

@@ -89,6 +89,7 @@ def protected_checkout(req: StoreCheckoutRequest):
         item=req.item,
         amount_cents=req.amount_cents,
         payee_id=req.payee_id,
+        agent_proof=req.agent_proof,
     )
 
     # Security: Verify token against request parameters using public key only

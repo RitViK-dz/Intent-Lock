@@ -77,10 +77,17 @@ def init_db(db_path: Path | str | None = None) -> None:
                 summary TEXT,
                 status TEXT CHECK (status IN ('pending', 'approved', 'rejected')),
                 created_at INTEGER,
-                decided_at INTEGER
+                decided_at INTEGER,
+                agent_pub TEXT
             );
             """
         )
+
+        # Migration: ensure agent_pub column exists on existing databases
+        try:
+            conn.execute("ALTER TABLE intents ADD COLUMN agent_pub TEXT;")
+        except sqlite3.OperationalError:
+            pass
 
         # Table 2: Consumed one-time nonces (enforcing single-use tokens atomically)
         conn.execute(
@@ -132,6 +139,7 @@ def create_intent(
     amount_cents: int,
     payee_id: str,
     summary: str,
+    agent_pub: str | None = None,
     db_path: Path | str | None = None,
     now: int | None = None,
 ) -> dict[str, Any]:
@@ -146,8 +154,8 @@ def create_intent(
     # Security: Use strictly parameterised query to prevent SQL injection
     sql = (
         "INSERT INTO intents ("
-        "id, agent_id, merchant_id, item, amount_cents, payee_id, summary, status, created_at, decided_at"
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
+        "id, agent_id, merchant_id, item, amount_cents, payee_id, summary, status, created_at, decided_at, agent_pub"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
     )
     params = (
         intent_id,
@@ -160,6 +168,7 @@ def create_intent(
         status,
         created_at,
         decided_at,
+        agent_pub,
     )
 
     with db_session(db_path) as conn:
@@ -176,13 +185,14 @@ def create_intent(
         "status": status,
         "created_at": created_at,
         "decided_at": decided_at,
+        "agent_pub": agent_pub,
     }
 
 
 def get_intent(intent_id: str, db_path: Path | str | None = None) -> dict[str, Any] | None:
     """Retrieve an intent by ID, or None if not found."""
     # Security: Parameterised query prevents SQL injection on intent_id lookup
-    sql = "SELECT id, agent_id, merchant_id, item, amount_cents, payee_id, summary, status, created_at, decided_at FROM intents WHERE id = ?;"
+    sql = "SELECT id, agent_id, merchant_id, item, amount_cents, payee_id, summary, status, created_at, decided_at, agent_pub FROM intents WHERE id = ?;"
     with db_session(db_path) as conn:
         cursor = conn.execute(sql, (intent_id,))
         row = cursor.fetchone()
@@ -199,10 +209,10 @@ def list_intents(
     with db_session(db_path) as conn:
         if status is not None:
             # Security: Parameterised query for status filter
-            sql = "SELECT id, agent_id, merchant_id, item, amount_cents, payee_id, summary, status, created_at, decided_at FROM intents WHERE status = ? ORDER BY created_at DESC;"
+            sql = "SELECT id, agent_id, merchant_id, item, amount_cents, payee_id, summary, status, created_at, decided_at, agent_pub FROM intents WHERE status = ? ORDER BY created_at DESC;"
             cursor = conn.execute(sql, (status,))
         else:
-            sql = "SELECT id, agent_id, merchant_id, item, amount_cents, payee_id, summary, status, created_at, decided_at FROM intents ORDER BY created_at DESC;"
+            sql = "SELECT id, agent_id, merchant_id, item, amount_cents, payee_id, summary, status, created_at, decided_at, agent_pub FROM intents ORDER BY created_at DESC;"
             cursor = conn.execute(sql)
         return [dict(row) for row in cursor.fetchall()]
 

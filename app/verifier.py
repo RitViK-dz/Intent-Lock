@@ -19,7 +19,13 @@ from typing import Any
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from app.crypto import verify
-from app.tokens import parse_token, decode_payload, TokenFormatError
+from app.tokens import (
+    parse_token,
+    decode_payload,
+    TokenFormatError,
+    compute_agent_proof_bytes,
+    b64url_decode,
+)
 from app.db import consume_nonce, log_event
 
 
@@ -36,6 +42,7 @@ class ReasonCode(str, Enum):
     ITEM_MISMATCH = "ITEM_MISMATCH"
     PAYEE_MISMATCH = "PAYEE_MISMATCH"
     AMOUNT_EXCEEDS_LIMIT = "AMOUNT_EXCEEDS_LIMIT"
+    BAD_AGENT_PROOF = "BAD_AGENT_PROOF"
     TOKEN_REPLAYED = "TOKEN_REPLAYED"
 
 
@@ -51,6 +58,7 @@ class CheckoutRequest:
     item: str
     amount_cents: int
     payee_id: str
+    agent_proof: str | None = None
 
 
 @dataclass
@@ -173,14 +181,50 @@ def verify_checkout(
     ):
         return _finish(False, ReasonCode.AMOUNT_EXCEEDS_LIMIT, extracted_nonce)
 
-    # Step 10: Consume one-time nonce atomically as the LAST step
+    # Step 10: Agent proof-of-possession verification for tokens bound to agent_pub (v=2)
+    # Security Rule: If the (signature-verified) token has agent_pub, a valid agent_proof
+    # is REQUIRED. A missing proof returns BAD_AGENT_PROOF, as does an invalid one.
+    # Do not make the proof optional for v=2 tokens.
+    agent_pub_b64 = payload.get("agent_pub")
+    is_v2 = payload.get("v") == 2
+
+    if agent_pub_b64 or is_v2:
+        if not agent_pub_b64 or not request.agent_proof or not isinstance(request.agent_proof, str):
+            return _finish(False, ReasonCode.BAD_AGENT_PROOF, extracted_nonce)
+
+        try:
+            # Reconstruct canonical request bytes using the shared helper
+            proof_bytes = compute_agent_proof_bytes(
+                agent_id=request.agent_id,
+                merchant_id=request.merchant_id,
+                item=request.item,
+                amount_cents=request.amount_cents,
+                payee_id=request.payee_id,
+                nonce=extracted_nonce or "",
+            )
+            raw_pub = b64url_decode(agent_pub_b64)
+            if len(raw_pub) != 32:
+                return _finish(False, ReasonCode.BAD_AGENT_PROOF, extracted_nonce)
+            agent_pub_key = ed25519.Ed25519PublicKey.from_public_bytes(raw_pub)
+
+            raw_sig = b64url_decode(request.agent_proof)
+            if len(raw_sig) != 64:
+                return _finish(False, ReasonCode.BAD_AGENT_PROOF, extracted_nonce)
+
+            # Verify proof signature against agent's public key
+            if not verify(agent_pub_key, raw_sig, proof_bytes):
+                return _finish(False, ReasonCode.BAD_AGENT_PROOF, extracted_nonce)
+        except Exception:
+            return _finish(False, ReasonCode.BAD_AGENT_PROOF, extracted_nonce)
+
+    # Step 11: Consume one-time nonce atomically as the LAST step
     # Security:
-    # 1. Placed last so rejected requests do not consume or burn a valid token.
+    # 1. Placed last so rejected requests (including failed proof) do not consume or burn a valid token.
     # 2. Executed atomically at the DB constraint layer so concurrent requests cannot replay it.
     if not extracted_nonce or not consume_nonce(
         extracted_nonce, merchant_id=store_id, db_path=db_path, now=current_time
     ):
         return _finish(False, ReasonCode.TOKEN_REPLAYED, extracted_nonce)
 
-    # Step 11: All checks passed -> APPROVED
+    # Step 12: All checks passed -> APPROVED
     return _finish(True, ReasonCode.APPROVED, extracted_nonce)

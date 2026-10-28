@@ -1,6 +1,6 @@
 # IntentLock Performance Benchmark Results
 
-> **Measurement Date**: 2026-10-27  
+> **Measurement Date**: 2026-10-28  
 > **Environment**: Python 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]  
 > **Operating System**: Windows 11 (AMD64)  
 > **Iterations**: 1000 independent transactions  
@@ -11,9 +11,9 @@
 
 IntentLock introduces cryptographic human approval verification without meaningful latency overhead for consumer or business checkouts.
 
-- **Token Verification Median Latency**: **5.928 ms**
-- **Token Verification 95th Percentile**: **8.773 ms**
-- **Token Creation Median Latency**: **0.045 ms**
+- **Token Verification Median Latency**: **6.694 ms**
+- **Token Verification 95th Percentile**: **11.349 ms**
+- **Token Creation Median Latency**: **0.063 ms**
 
 All measurements were dynamically computed using `time.perf_counter` across an isolated SQLite database and fresh Ed25519 keypair.
 
@@ -26,11 +26,11 @@ The verifier executes signature verification with the Ed25519 public key, decode
 | Metric | Latency (milliseconds) |
 |---|---|
 | **Runs Evaluated** | 1000 |
-| **Median (p50)** | 5.928 ms |
-| **95th Percentile (p95)** | 8.773 ms |
-| **Maximum Latency** | 18.131 ms |
-| **Mean Latency** | 6.358 ms |
-| **Minimum Latency** | 5.249 ms |
+| **Median (p50)** | 6.694 ms |
+| **95th Percentile (p95)** | 11.349 ms |
+| **Maximum Latency** | 37.213 ms |
+| **Mean Latency** | 7.373 ms |
+| **Minimum Latency** | 5.586 ms |
 
 ---
 
@@ -40,10 +40,10 @@ Measures Ed25519 digital signature generation, JSON encoding, and Base64URL stri
 
 | Metric | Latency (milliseconds) |
 |---|---|
-| **Median (p50)** | 0.045 ms |
-| **95th Percentile (p95)** | 0.066 ms |
-| **Maximum Latency** | 0.446 ms |
-| **Mean Latency** | 0.048 ms |
+| **Median (p50)** | 0.063 ms |
+| **95th Percentile (p95)** | 0.110 ms |
+| **Maximum Latency** | 0.459 ms |
+| **Mean Latency** | 0.066 ms |
 | **Minimum Latency** | 0.042 ms |
 
 ---

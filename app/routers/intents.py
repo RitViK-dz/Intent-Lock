@@ -56,21 +56,26 @@ def propose_intent(req: CreateIntentRequest) -> CreateIntentResponse:
         amount_cents=req.amount_cents,
         payee_id=req.payee_id,
         summary=req.summary,
+        agent_pub=req.agent_pub,
         db_path=settings.db_path,
     )
 
     # Security: Audit trail logs proposed action without sensitive credentials
+    log_detail = {
+        "merchant_id": req.merchant_id,
+        "item": req.item,
+        "amount_cents": req.amount_cents,
+        "payee_id": req.payee_id,
+        "summary": req.summary,
+    }
+    if req.agent_pub:
+        log_detail["agent_pub_present"] = True
+
     log_event(
         event="intent_created",
         actor=req.agent_id,
         intent_id=intent_id,
-        detail={
-            "merchant_id": req.merchant_id,
-            "item": req.item,
-            "amount_cents": req.amount_cents,
-            "payee_id": req.payee_id,
-            "summary": req.summary,
-        },
+        detail=log_detail,
         db_path=settings.db_path,
     )
 
@@ -155,6 +160,7 @@ def approve_intent(intent_id: str) -> ApproveIntentResponse:
         payee_id=intent["payee_id"],
         ttl_seconds=settings.token_ttl_seconds,
         now=now,
+        agent_pub=intent.get("agent_pub"),
     )
 
     # Transition state to approved

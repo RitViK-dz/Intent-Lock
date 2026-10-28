@@ -31,12 +31,12 @@ def test_benchmark_report_written_with_date(tmp_path: Path):
     assert "verify_checkout" in content
 
 
-def test_attack_suite_blocks_all_12_attacks():
-    """Verify run_attack_suite blocks all 12 attacks and verifies unprotected vulnerability."""
+def test_attack_suite_blocks_all_13_attacks():
+    """Verify run_attack_suite blocks all 13 attacks and verifies unprotected vulnerability."""
     results, blocked, unprot = run_attack_suite()
-    assert len(results) == 12
-    assert blocked == 12
-    assert unprot == 12
+    assert len(results) == 13
+    assert blocked == 13
+    assert unprot == 13
 
     for r in results:
         assert r["status"] == "PASS"

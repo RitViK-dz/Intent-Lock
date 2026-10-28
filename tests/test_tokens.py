@@ -152,3 +152,45 @@ def test_b64url_helpers_no_padding():
 
     decoded = b64url_decode(encoded)
     assert decoded == raw
+
+
+def test_token_with_agent_pub_sets_version_two(tmp_path: Path):
+    """Verify create_token with agent_pub sets v=2 and embeds agent_pub."""
+    priv_key, _ = load_or_create_keypair(tmp_path)
+    args = _sample_token_args(priv_key, agent_pub="test_agent_pub_base64url_string")
+
+    token = create_token(**args)
+    payload_bytes, _ = parse_token(token)
+    payload = decode_payload(payload_bytes)
+
+    assert payload["v"] == 2
+    assert payload["agent_pub"] == "test_agent_pub_base64url_string"
+
+
+def test_token_without_agent_pub_stays_version_one(tmp_path: Path):
+    """Verify create_token without agent_pub maintains v=1 and does not have agent_pub key."""
+    priv_key, _ = load_or_create_keypair(tmp_path)
+    args = _sample_token_args(priv_key, agent_pub=None)
+
+    token = create_token(**args)
+    payload_bytes, _ = parse_token(token)
+    payload = decode_payload(payload_bytes)
+
+    assert payload["v"] == 1
+    assert "agent_pub" not in payload
+
+
+def test_compute_agent_proof_bytes_canonical_format():
+    """Verify compute_agent_proof_bytes formats exact JSON with sort_keys=True and separators=(',', ':')."""
+    from app.tokens import compute_agent_proof_bytes
+
+    proof_bytes = compute_agent_proof_bytes(
+        agent_id="agent-007",
+        merchant_id="merchant-abc",
+        item="item-xyz",
+        amount_cents=5000,
+        payee_id="PAYEE-1",
+        nonce="testnonce12345",
+    )
+    expected = b'{"agent_id":"agent-007","amount_cents":5000,"item":"item-xyz","merchant_id":"merchant-abc","nonce":"testnonce12345","payee_id":"PAYEE-1"}'
+    assert proof_bytes == expected

@@ -380,3 +380,207 @@ def test_a12_race_ten_threads_one_approved(test_env):
     # Remaining 9 requests must be blocked with TOKEN_REPLAYED
     replayed_count = sum(1 for r in results if not r.allowed and r.reason == ReasonCode.TOKEN_REPLAYED)
     assert replayed_count == num_threads - 1
+
+
+def test_a13_stolen_token_without_agent_private_key_blocked(test_env):
+    """A13 Attack: Attacker steals a v=2 token bound to agent_pub.
+
+    Without the agent's private key, the stolen token cannot produce a valid
+    proof-of-possession signature. Verifier blocks it with BAD_AGENT_PROOF, and
+    does NOT consume the nonce (the legitimate token is not burned).
+    """
+    # 1. Legitimate agent has its own Ed25519 keypair in memory
+    agent_priv = ed25519.Ed25519PrivateKey.generate()
+    from cryptography.hazmat.primitives import serialization
+    agent_pub_raw = agent_priv.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    agent_pub_b64 = b64url_encode(agent_pub_raw)
+
+    # 2. Token issued with agent_pub (v=2 token)
+    token = _create_approved_token(
+        test_env["priv_key"],
+        agent_pub=agent_pub_b64,
+        now=1700000000,
+    )
+
+    # 3. Attacker intercepts/steals token, submits checkout with NO agent proof
+    stolen_req = _default_request(agent_proof=None)
+    res_no_proof = verify_checkout(
+        token=token,
+        request=stolen_req,
+        public_key=test_env["pub_key"],
+        store_id=test_env["store_id"],
+        now=1700000050,
+        db_path=test_env["db_path"],
+    )
+    assert res_no_proof.allowed is False
+    assert res_no_proof.reason == ReasonCode.BAD_AGENT_PROOF
+
+    # 4. Attacker attempts to forge proof using their own private key
+    from app.tokens import compute_agent_proof_bytes
+    attacker_proof_bytes = compute_agent_proof_bytes(
+        agent_id=stolen_req.agent_id,
+        merchant_id=stolen_req.merchant_id,
+        item=stolen_req.item,
+        amount_cents=stolen_req.amount_cents,
+        payee_id=stolen_req.payee_id,
+        nonce=res_no_proof.nonce,
+    )
+    forged_proof = b64url_encode(sign(test_env["attacker_priv"], attacker_proof_bytes))
+    forged_req = _default_request(agent_proof=forged_proof)
+
+    res_forged = verify_checkout(
+        token=token,
+        request=forged_req,
+        public_key=test_env["pub_key"],
+        store_id=test_env["store_id"],
+        now=1700000050,
+        db_path=test_env["db_path"],
+    )
+    assert res_forged.allowed is False
+    assert res_forged.reason == ReasonCode.BAD_AGENT_PROOF
+
+    # 5. INVARIANT: Nonce was NOT burned by failed proof attempts!
+    # The legitimate agent can still check out using the token with valid proof.
+    valid_proof_bytes = compute_agent_proof_bytes(
+        agent_id="shopper-agent-1",
+        merchant_id="demo-store",
+        item="laptop-14in",
+        amount_cents=45000,
+        payee_id="STORE-ACCT-001",
+        nonce=res_no_proof.nonce,
+    )
+    valid_proof = b64url_encode(sign(agent_priv, valid_proof_bytes))
+    legit_req = _default_request(agent_proof=valid_proof)
+
+    res_legit = verify_checkout(
+        token=token,
+        request=legit_req,
+        public_key=test_env["pub_key"],
+        store_id=test_env["store_id"],
+        now=1700000050,
+        db_path=test_env["db_path"],
+    )
+    assert res_legit.allowed is True
+    assert res_legit.reason == ReasonCode.APPROVED
+
+
+def test_agent_proof_valid_passes(test_env):
+    """Valid proof-of-possession matching token agent_pub and request parameters is APPROVED."""
+    agent_priv = ed25519.Ed25519PrivateKey.generate()
+    from cryptography.hazmat.primitives import serialization
+    agent_pub_raw = agent_priv.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    agent_pub_b64 = b64url_encode(agent_pub_raw)
+
+    token = _create_approved_token(
+        test_env["priv_key"],
+        agent_pub=agent_pub_b64,
+        now=1700000000,
+    )
+
+    from app.tokens import parse_token, decode_payload, compute_agent_proof_bytes
+    payload = decode_payload(parse_token(token)[0])
+    nonce = payload["nonce"]
+
+    proof_bytes = compute_agent_proof_bytes(
+        agent_id="shopper-agent-1",
+        merchant_id="demo-store",
+        item="laptop-14in",
+        amount_cents=45000,
+        payee_id="STORE-ACCT-001",
+        nonce=nonce,
+    )
+    proof_sig = b64url_encode(sign(agent_priv, proof_bytes))
+
+    req = _default_request(agent_proof=proof_sig)
+    res = verify_checkout(
+        token=token,
+        request=req,
+        public_key=test_env["pub_key"],
+        store_id=test_env["store_id"],
+        now=1700000050,
+        db_path=test_env["db_path"],
+    )
+
+    assert res.allowed is True
+    assert res.reason == ReasonCode.APPROVED
+
+
+def test_agent_proof_over_different_fields_fails(test_env):
+    """Proof generated over different fields (e.g. different amount) fails verification."""
+    agent_priv = ed25519.Ed25519PrivateKey.generate()
+    from cryptography.hazmat.primitives import serialization
+    agent_pub_raw = agent_priv.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    agent_pub_b64 = b64url_encode(agent_pub_raw)
+
+    token = _create_approved_token(
+        test_env["priv_key"],
+        agent_pub=agent_pub_b64,
+        now=1700000000,
+    )
+
+    from app.tokens import parse_token, decode_payload, compute_agent_proof_bytes
+    payload = decode_payload(parse_token(token)[0])
+    nonce = payload["nonce"]
+
+    # Sign over 10000 cents instead of 45000 cents
+    proof_bytes = compute_agent_proof_bytes(
+        agent_id="shopper-agent-1",
+        merchant_id="demo-store",
+        item="laptop-14in",
+        amount_cents=10000,  # mismatch!
+        payee_id="STORE-ACCT-001",
+        nonce=nonce,
+    )
+    proof_sig = b64url_encode(sign(agent_priv, proof_bytes))
+
+    req = _default_request(agent_proof=proof_sig)  # req has amount_cents=45000
+    res = verify_checkout(
+        token=token,
+        request=req,
+        public_key=test_env["pub_key"],
+        store_id=test_env["store_id"],
+        now=1700000050,
+        db_path=test_env["db_path"],
+    )
+
+    assert res.allowed is False
+    assert res.reason == ReasonCode.BAD_AGENT_PROOF
+
+
+def test_agent_proof_missing_on_v2_token_fails(test_env):
+    """A v=2 token presented without agent_proof is rejected with BAD_AGENT_PROOF."""
+    agent_priv = ed25519.Ed25519PrivateKey.generate()
+    from cryptography.hazmat.primitives import serialization
+    agent_pub_raw = agent_priv.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    agent_pub_b64 = b64url_encode(agent_pub_raw)
+
+    token = _create_approved_token(
+        test_env["priv_key"],
+        agent_pub=agent_pub_b64,
+        now=1700000000,
+    )
+
+    req = _default_request(agent_proof=None)
+    res = verify_checkout(
+        token=token,
+        request=req,
+        public_key=test_env["pub_key"],
+        store_id=test_env["store_id"],
+        now=1700000050,
+        db_path=test_env["db_path"],
+    )
+
+    assert res.allowed is False
+    assert res.reason == ReasonCode.BAD_AGENT_PROOF

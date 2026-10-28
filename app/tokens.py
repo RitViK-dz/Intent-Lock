@@ -47,6 +47,50 @@ def b64url_decode(s: str) -> bytes:
         raise TokenFormatError(f"Invalid base64 encoding: {exc}") from exc
 
 
+def compute_agent_proof_bytes(
+    agent_id: str,
+    merchant_id: str,
+    item: str,
+    amount_cents: int,
+    payee_id: str,
+    nonce: str,
+) -> bytes:
+    """Compute canonical UTF-8 JSON bytes for agent proof-of-possession signing.
+
+    Fixed JSON structure: {agent_id, merchant_id, item, amount_cents, payee_id, nonce}
+    with sort_keys=True and compact separators=(',', ':').
+    Shared between agent (signer) and store verifier.
+    """
+    payload = {
+        "agent_id": agent_id,
+        "merchant_id": merchant_id,
+        "item": item,
+        "amount_cents": amount_cents,
+        "payee_id": payee_id,
+        "nonce": nonce,
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def agent_pub_to_b64url(public_key: ed25519.Ed25519PublicKey) -> str:
+    """Export raw 32-byte Ed25519 public key as an unpadded base64url string."""
+    from cryptography.hazmat.primitives import serialization
+
+    raw_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    return b64url_encode(raw_bytes)
+
+
+def agent_pub_from_b64url(s: str) -> ed25519.Ed25519PublicKey:
+    """Import raw 32-byte Ed25519 public key from an unpadded base64url string."""
+    raw_bytes = b64url_decode(s)
+    if len(raw_bytes) != 32:
+        raise ValueError(f"Raw Ed25519 public key must be 32 bytes, got {len(raw_bytes)}")
+    return ed25519.Ed25519PublicKey.from_public_bytes(raw_bytes)
+
+
 def create_token(
     private_key: ed25519.Ed25519PrivateKey,
     *,
@@ -60,6 +104,7 @@ def create_token(
     payee_id: str,
     ttl_seconds: int,
     now: int | float | None = None,
+    agent_pub: str | None = None,
 ) -> str:
     """Issue a cryptographically signed human approval token bound to exact action parameters.
 
@@ -68,6 +113,7 @@ def create_token(
     2. Nonce is 16 cryptographically secure random bytes (32 hex characters).
     3. Expiry is enforced relative to issuance time.
     4. Signature covers exact raw JSON bytes.
+    5. Tokens carrying agent_pub are set to v=2 for proof-of-possession binding. Tokens without agent_pub stay v=1.
     """
     # Security: Enforce integer representation for money to prevent floating-point rounding attacks
     if not isinstance(max_amount_cents, int):
@@ -80,8 +126,13 @@ def create_token(
     iat = int(now if now is not None else time.time())
     exp = iat + int(ttl_seconds)
 
+    # PROTOTYPE LIMITATION: For Phase 12b proof-of-possession, the token directly carries the agent's
+    # raw Ed25519 public key. Production systems would use DPoP (RFC 9449) with JWK thumbprints
+    # or mTLS certificates bound to hardware TPMs.
+    version = 2 if agent_pub else 1
+
     payload: dict[str, Any] = {
-        "v": 1,
+        "v": version,
         "nonce": nonce,
         "user_id": user_id,
         "agent_id": agent_id,
@@ -94,6 +145,8 @@ def create_token(
         "iat": iat,
         "exp": exp,
     }
+    if agent_pub:
+        payload["agent_pub"] = agent_pub
 
     # Security: Serialize with deterministic compact separators (no whitespace ambiguity)
     payload_json_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")

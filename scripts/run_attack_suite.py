@@ -1,6 +1,6 @@
-"""IntentLock Phase 10: 12-Attack Defense and Baseline Comparison Suite.
+"""IntentLock Phase 12b: 13-Attack Defense and Baseline Comparison Suite.
 
-Executes all 12 attack scenarios against the store API:
+Executes all 13 attack scenarios against the store API:
 1. Protected checkout (/store/checkout): Validates cryptographic IntentLock tokens.
    Verifies that the attack is blocked and the returned ReasonCode matches expectations.
 2. Unprotected baseline (/store/checkout-unprotected): Demonstrates what happens without IntentLock.
@@ -8,8 +8,8 @@ Executes all 12 attack scenarios against the store API:
 
 Outputs:
 - Formatted table of Attack ID, Description, Expected Reason, Actual Reason, and Status (PASS/FAIL).
-- Summary line: "12/12 attacks blocked"
-- Summary line: "12/12 attacks succeeded without IntentLock"
+- Summary line: "13/13 attacks blocked"
+- Summary line: "13/13 attacks succeeded without IntentLock"
 """
 
 import warnings
@@ -26,10 +26,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from cryptography.hazmat.primitives.asymmetric import ed25519
 from app.config import settings
 from app.crypto import load_or_create_keypair
 from app.db import init_db
-from app.tokens import create_token, b64url_encode, b64url_decode
+from app.tokens import create_token, b64url_encode, b64url_decode, agent_pub_to_b64url
 from app.verifier import ReasonCode
 from app.main import app
 
@@ -52,7 +53,7 @@ def _create_token(priv_key, **overrides) -> str:
 
 
 def run_attack_suite() -> tuple[list[dict], int, int]:
-    """Execute all 12 attack scenarios and compute real-time outcomes."""
+    """Execute all 13 attack scenarios and compute real-time outcomes."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         db_file = tmp_path / "attack_test.db"
@@ -66,6 +67,10 @@ def run_attack_suite() -> tuple[list[dict], int, int]:
         init_db(db_file)
         priv_key, pub_key = load_or_create_keypair(keys_dir)
         attacker_priv, _ = load_or_create_keypair(attacker_keys_dir)
+
+        # Ephemeral in-memory keypair for simulated agent
+        agent_priv = ed25519.Ed25519PrivateKey.generate()
+        agent_pub_b64 = agent_pub_to_b64url(agent_priv.public_key())
 
         client = TestClient(app)
         results = []
@@ -216,6 +221,20 @@ def run_attack_suite() -> tuple[list[dict], int, int]:
                 "expected": ReasonCode.TOKEN_REPLAYED.value,
                 "is_race": True,
             },
+            {
+                "id": "A13",
+                "desc": "Stolen token used without agent key",
+                "expected": ReasonCode.BAD_AGENT_PROOF.value,
+                "token": lambda: _create_token(priv_key, agent_pub=agent_pub_b64),
+                "req": {
+                    "agent_id": "shopper-agent-1",
+                    "merchant_id": "demo-store",
+                    "item": "laptop-14in",
+                    "amount_cents": 45000,
+                    "payee_id": "STORE-ACCT-001",
+                    "agent_proof": None,
+                },
+            },
         ]
 
         # Execute each attack
@@ -324,7 +343,7 @@ def print_attack_table(results: list[dict], blocked_count: int, unprot_count: in
     total = len(results)
 
     print("\n" + "=" * 90)
-    print("                  IntentLock 12-Attack Defense Evaluation Suite")
+    print("                  IntentLock 13-Attack Defense Evaluation Suite")
     print("=" * 90)
 
     # Format header

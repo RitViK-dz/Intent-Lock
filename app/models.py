@@ -16,6 +16,7 @@ class CreateIntentRequest(BaseModel):
     amount_cents: int = Field(..., gt=0, description="Spending amount strictly in integer cents")
     payee_id: str = Field(..., min_length=1, max_length=100, description="Destination payee account")
     summary: str = Field(..., min_length=1, max_length=500, description="Human-readable explanation of the action")
+    agent_pub: str | None = Field(None, description="Optional Base64URL raw Ed25519 public key of the agent for proof-of-possession binding")
 
 
 class CreateIntentResponse(BaseModel):
@@ -38,6 +39,7 @@ class IntentResponse(BaseModel):
     status: str
     created_at: int
     decided_at: int | None = None
+    agent_pub: str | None = None
 
 
 class ApproveIntentResponse(BaseModel):
@@ -73,6 +75,7 @@ class StoreCheckoutRequest(BaseModel):
     amount_cents: int
     payee_id: str
     token: str | None = None
+    agent_proof: str | None = Field(None, description="Optional Ed25519 signature by agent proving possession of agent_pub")
 
 
 class StoreCheckoutResponse(BaseModel):

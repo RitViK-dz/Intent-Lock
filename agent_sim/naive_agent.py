@@ -10,9 +10,29 @@ preventing hijacked actions from executing at checkout.
 
 import time
 from typing import Any
+from cryptography.hazmat.primitives.asymmetric import ed25519
 from fastapi.testclient import TestClient
 
 from agent_sim.scenarios import get_scenario
+from app.tokens import (
+    parse_token,
+    decode_payload,
+    compute_agent_proof_bytes,
+    b64url_encode,
+    agent_pub_to_b64url,
+)
+
+# PROTOTYPE LIMITATION: In this simulation, each agent keeps an ephemeral Ed25519 keypair
+# strictly in memory (never persisted to disk or repository). Production systems would use
+# hardware-backed keystores (TPM / Secure Enclave) or DPoP private keys with cryptographic attestation.
+_AGENT_KEYPAIRS: dict[str, ed25519.Ed25519PrivateKey] = {}
+
+
+def get_agent_keypair(agent_id: str) -> ed25519.Ed25519PrivateKey:
+    """Return in-memory Ed25519 private key for a simulated agent, creating it if needed."""
+    if agent_id not in _AGENT_KEYPAIRS:
+        _AGENT_KEYPAIRS[agent_id] = ed25519.Ed25519PrivateKey.generate()
+    return _AGENT_KEYPAIRS[agent_id]
 
 
 def run_scenario(
@@ -70,20 +90,25 @@ def run_scenario(
             else scenario["payee_id"]
         )
 
+        agent_id = "shopper-agent-1"
+        agent_priv = get_agent_keypair(agent_id)
+        agent_pub = agent_pub_to_b64url(agent_priv.public_key())
+
         _log(
-            f"Protected Mode: Proposing intent for human review. "
+            f"Protected Mode: Proposing intent for human review with agent proof-of-possession key. "
             f"Item: '{scenario['item']}', Amount: {scenario['amount_cents']} cents, Payee: '{intent_payee}'."
         )
 
         intent_res = client.post(
             "/api/intents",
             json={
-                "agent_id": "shopper-agent-1",
+                "agent_id": agent_id,
                 "merchant_id": scenario["merchant_id"],
                 "item": scenario["item"],
                 "amount_cents": scenario["amount_cents"],
                 "payee_id": intent_payee,
                 "summary": f"Automated purchase proposal for {scenario['item']}",
+                "agent_pub": agent_pub,
             },
         )
 
@@ -161,6 +186,21 @@ def run_scenario(
                 "payee_id": scenario["payee_id"],
                 "token": token,
             }
+            if token:
+                payload_bytes, _ = parse_token(token)
+                tok_payload = decode_payload(payload_bytes)
+                tok_nonce = tok_payload.get("nonce", "")
+                s4_agent_priv = get_agent_keypair("shopper-agent-1")
+                s4_proof_bytes = compute_agent_proof_bytes(
+                    agent_id="shopper-agent-1",
+                    merchant_id=scenario["merchant_id"],
+                    item=scenario["item"],
+                    amount_cents=scenario["amount_cents"],
+                    payee_id=scenario["payee_id"],
+                    nonce=tok_nonce,
+                )
+                first_payload["agent_proof"] = b64url_encode(s4_agent_priv.sign(s4_proof_bytes))
+
             res1 = client.post("/store/checkout", json=first_payload)
             if res1.status_code == 200:
                 order1 = res1.json().get("order_id")
@@ -224,6 +264,22 @@ def run_scenario(
 
     if protected:
         checkout_payload["token"] = token
+        if token:
+            payload_bytes, _ = parse_token(token)
+            tok_payload = decode_payload(payload_bytes)
+            tok_nonce = tok_payload.get("nonce", "")
+            agent_priv = get_agent_keypair("shopper-agent-1")
+            # A hijacked agent still signs its hijacked request; the field checks are what block it
+            proof_bytes = compute_agent_proof_bytes(
+                agent_id="shopper-agent-1",
+                merchant_id=scenario["merchant_id"],
+                item=checkout_item,
+                amount_cents=checkout_amount,
+                payee_id=checkout_payee,
+                nonce=tok_nonce,
+            )
+            checkout_payload["agent_proof"] = b64url_encode(agent_priv.sign(proof_bytes))
+
         _log("Submitting checkout to protected endpoint POST /store/checkout...")
         store_res = client.post("/store/checkout", json=checkout_payload)
 
